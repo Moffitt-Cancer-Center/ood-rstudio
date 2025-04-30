@@ -1,0 +1,36 @@
+---
+batch_connect:
+  template: "basic"
+script:
+  native:
+    # -N is node count. RStudio can only run on a single
+    # node.
+    - "-N"
+    - "1"
+    # -n is number of tasks. RStudio is a multi-threaded app,
+    # although it is the case that R (rsession) is a child
+    # process as are terminals. However, in all of these cases,
+    # at least for default purposes, we want them to run on the
+    # same node to avoid confusion.
+    - "-n"
+    - "1"
+    # Number of cpus per task (one task)
+    - "--cpus-per-task"
+    - "<%= num_cores %>"
+    # GPU selection. Only include option if the gpu type
+    # was set.
+    <%- if gpu_type != "none" -%>
+    - "--gres=gpu:<%= gpu_type %>"
+    <%- end -%>
+    # Memory. Since this is a single-node application, the memory
+    # requested is the total (--mem) for the job.
+    <%- if memtask != "default" -%>
+    - "--mem"
+    - "<%= memtask %>"
+    <%- end -%>
+    # Set the qos
+    - "--qos"
+    - "<%= qos %>"
+    # Set the job name (for squeue output)
+    - "--job-name"
+    - "ood-rstudio-server"

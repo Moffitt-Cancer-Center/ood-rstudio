@@ -1,0 +1,22 @@
+# From OSC github, rstudio 1.4+ needs a csrf token
+export csrf_token=<%= SecureRandom.uuid %>
+
+# Export the module function if it exists
+#[[ $(type -t module) == "function" ]] && export -f module
+
+# Find available port to run server on
+export port=$(find_port ${host})
+
+# Export compute node the script is running on
+export host="${host}"
+
+export r_version="<%= context.r_version %>"
+
+# Create a password. This will be stored in the connection.yml file
+# and passed into the rstudio startup script. There it needs to be
+# handed off to APPTAINERENV_RSTUDIO_PASSWORD to be read within the
+# container. It seems that port and host are exported by default, but
+# not password so we do this explicitly. Then APPTAINER is handled by
+# the rstudio startup script.
+export password="$(create_passwd 16)"
+
