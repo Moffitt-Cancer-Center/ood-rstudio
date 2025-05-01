@@ -20,16 +20,16 @@ attributes:
     help: Memory to allocate for job
     value: "1G"
     options:
-      - ["Use 1GB per task", "1G"]
-      - ["Use 2GB per task", "2G"]
-      - ["Use 4GB per task", "4G"]
-      - ["Use 8GB per task", "8G"]
-      - ["Use 16GB per task", "16G"]
-      - ["Use 32GB per task", "32G"]
-      - ["Use 64GB per task", "64G"]
-      - ["Use 128GB per task", "128G"]
-      - ["Use 256GB per task", "256G"]
-      - ["Use 512GB per task", "512G"]
+      - ["Reserve 1GB", "1G"]
+      - ["Reserve 2GB", "2G"]
+      - ["Reserve 4GB", "4G"]
+      - ["Reserve 8GB", "8G"]
+      - ["Reserve 16GB", "16G"]
+      - ["Reserve 32GB", "32G"]
+      - ["Reserve 64GB", "64G"]
+      - ["Reserve 128GB", "128G"]
+      - ["Reserve 256GB", "256G"]
+      - ["Reserve 512GB", "512G"]
   bc_num_cores:
     widget: "number_field"
     label: "Number of CPU Cores"
