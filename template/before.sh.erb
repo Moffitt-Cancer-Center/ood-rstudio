@@ -1,8 +1,9 @@
 # From OSC github, rstudio 1.4+ needs a csrf token
-export csrf_token=<%= SecureRandom.uuid %>
+#
+<%# csrf_token=<%= SecureRandom.uuid %>
 
 # Export the module function if it exists
-#[[ $(type -t module) == "function" ]] && export -f module
+[[ $(type -t module) == "function" ]] && export -f module
 
 # Find available port to run server on
 export port=$(find_port ${host})
@@ -20,3 +21,13 @@ export r_version="<%= context.r_version %>"
 # the rstudio startup script.
 export password="$(create_passwd 16)"
 
+# Define a password and export it for RStudio authentication (via APPTAINER)
+# Not sure if it is needed here or in script
+export APPTAINERENV_RSTUDIO_PASSWORD="${password}"
+
+# Define CSRF_TOKEN and export it for auth
+<%-
+  require 'securerandom'
+  csrftoken=SecureRandom.uuid
+-%>
+export csrf_token="<%= csrftoken %>"

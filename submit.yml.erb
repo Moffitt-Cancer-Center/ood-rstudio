@@ -1,36 +1,31 @@
+<% require 'date' %>
+<% date = Date.today.strftime('%Y%m%d') %>
+
 ---
 batch_connect:
   template: "basic"
+  conn_params:
+    - csrf_token
 script:
+  wall_time: "<%= (bc_num_hours.blank? ? 1 : bc_num_hours.to_i) * 3600 %>"
+  copy_environment: true
   native:
-    # -N is node count. RStudio can only run on a single
-    # node.
-    - "-N"
-    - "1"
+    # -N is node count. RStudio can only run on a single node.
+    - "--nodes=<%= bc_num_slots.blank? ? 1 : bc_num_slots.to_i %>"
+    # Number of cpus per task (one task)
+    - "--cpus-per-task=<%= bc_num_cores.blank? ? 1 : bc_num_cores.to_i %>"
     # -n is number of tasks. RStudio is a multi-threaded app,
     # although it is the case that R (rsession) is a child
     # process as are terminals. However, in all of these cases,
     # at least for default purposes, we want them to run on the
     # same node to avoid confusion.
-    - "-n"
-    - "1"
-    # Number of cpus per task (one task)
-    - "--cpus-per-task"
-    - "<%= num_cores %>"
-    # GPU selection. Only include option if the gpu type
-    # was set.
-    <%- if gpu_type != "none" -%>
-    - "--gres=gpu:<%= gpu_type %>"
-    <%- end -%>
+    - "--ntasks=1"
     # Memory. Since this is a single-node application, the memory
     # requested is the total (--mem) for the job.
-    <%- if memtask != "default" -%>
-    - "--mem"
-    - "<%= memtask %>"
-    <%- end -%>
-    # Set the qos
-    - "--qos"
-    - "<%= qos %>"
+    - "--mem=<%= bc_mem.blank? ? 4 : bc_mem.to_i %>G"
+    # GPU selection. Checks if GPU was selected
+    - "--gres=gpu:<%= bc_num_gpu.blank? ? "0" : bc_num_gpu.to_i %>"
     # Set the job name (for squeue output)
-    - "--job-name"
-    - "ood-rstudio-server"
+    - "--job-name=ood-dev-rstudio-container_<%= ENV['USER'] %>_<%= date %>"
+    # Set the qos
+    - "--qos=<%= qos %>"

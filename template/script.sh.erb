@@ -45,6 +45,7 @@ create_db_config() {
 #
 WORKING_DIR="<%= session.staged_root %>"
 #R_VERSION="session.r_version"
+R_VERSION="<%= context.r_version %>"
 LOG_DIR="${WORKING_DIR}/log"  #  local logging output
 BIN_DIR="${WORKING_DIR}/bin"    # local bin (for session-specific tasks)
 TMP_DIR=$(mktemp -d)    # session-specific /tmp
@@ -64,16 +65,17 @@ RSTUDIO_RSESSION="${BIN_DIR}/rsession.sh"
 # Anything exported to apptainer environment must
 # be preceded with APPTAINERENV
 export APPTAINERENV_RSTUDIO_PASSWORD="$password"
-export RSTUDIO_CONTAINER_URI=docker://dockerhub.moffitt.org/hpc/rocker-rstudio:${r_version}
+export RSTUDIO_CONTAINER_URI=docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION
 #
 # Initialize environment for execution.
 mkdir -p ${LOG_DIR}
 echo "`date`: Initializing RStudio environment" >> ${JOB_LOG}
-echo "`date`: R Version ${r_version}" >> ${JOB_LOG}
+echo "`date`: R Version $R_VERSION" >> ${JOB_LOG}
 echo "`date`: Using docker URI $RSTUDIO_CONTAINER_URI" >> ${JOB_LOG}
 # setup_env
 # Load the required environment. Since we are using containers, there
 # is not much to setup.
+export MODULEPATH=$MODULEPATH:/app/eb/modules/all:/app/other/modules
 setup_env () {
   module purge
 }
@@ -82,12 +84,11 @@ setup_env
 
 ####################################################################
 #- workspace_init
-# There is persistant rstudio state that is used. When running as
-# a container, rstudio will default to system locations for rstudio
-# server components. Note that session components are already managed
-# under ~/.local/share/rstudio. We need
-# to create a local version of this system state and setup apptainer
-# bind points to override the system locations.
+# There is persistant rstudio state that is used. When running as a
+# container, rstudio will default to system locations for rstudio server
+# components. Note that session components are already managed under 
+# ~/.local/share/rstudio. We need to create a local version of this 
+# system state and setup apptainer bind points to override the system locations.
 #
 # There are several key directories/files that are needed:
 #  - /var/log/rstudio
@@ -140,7 +141,7 @@ echo "$BIND_POINTS" | tr ',' '\n' >> ${JOB_LOG}
 # See https://docs.posit.co/ide/server-pro/reference/rserver_conf.html
 
 
-# note, containerized rserver starts with user space environment 
+# Note, containerized rserver starts with user space environment 
 # defined on host.
 # BUT, the rsession that is spawned from rserver starts on 
 # limited environment, only related to R = no SLURM*, http*, ...
@@ -218,10 +219,12 @@ apptainer exec \
 		--www-port "${port}" \
  		--auth-none 0 \
  		--auth-pam-helper-path "${RSTUDIO_AUTH}" \
-		--auth-pam-require-password-prompt=0 \
  		--auth-encrypt-password 0 \
 		--rsession-path "${RSTUDIO_RSESSION}"  \
 		--server-app-armor-enabled=0 \
+                --server-data-dir "${TMP_DIR}" \
+                --secure-cookie-key-file "${TMP_DIR}/rstudio-server/secure-cookie-key" \
+                --database-config-file "${DB_CF}" \
 		--server-user "${USER}"
-
+#		--auth-pam-require-password-prompt=0 \
 

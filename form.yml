@@ -4,70 +4,80 @@ cluster: "slurm"
 description: |
   This app will launch RStudio server on one Red node. 
 attributes:
-  num_cores:
-    widget: "number_field"
-    label: "Number of cores"
-    value: 8
-    help: "Maximum number of CPU cores on red is 64."
-    min: 1
-    max: 64
+  bc_queue: "red"
+  bc_account: null
   bc_num_hours:
-    label: "Number of hours"
-    value: 12   
+    widget: "number_field"
+    label: "Runtime [hours]"
+    help: Number of hours to run
+    value: 1
     min: 1
     max: 336
-    help: "Maximum wall time on red is 14 days."
-  bc_queue:
-    label: "Partition"
+    step: 1
+  bc_mem:
+    widget: "select"
+    label: "Maximum Memory (GB)"
+    help: Memory to allocate for job
+    value: "1G"
+    options:
+      - ["Use 1GB per task", "1G"]
+      - ["Use 2GB per task", "2G"]
+      - ["Use 4GB per task", "4G"]
+      - ["Use 8GB per task", "8G"]
+      - ["Use 16GB per task", "16G"]
+      - ["Use 32GB per task", "32G"]
+      - ["Use 64GB per task", "64G"]
+      - ["Use 128GB per task", "128G"]
+      - ["Use 256GB per task", "256G"]
+      - ["Use 512GB per task", "512G"]
+  bc_num_cores:
+    widget: "number_field"
+    label: "Number of CPU Cores"
+    help: Number of cores to allocate
+    value: 1
+    min: 1
+    max: 64
+    step: 1
+  bc_num_gpu:
+    widget: "select"
+    label: "GPU:count"
+    options:
+      - ["No GPU required", "0"]
+      - ["Single(1) GPU", "1"]
     help: |
-       - Leave blank for default (red)
-       - 'viz' partition is for visualization-specific jobs
+       - GPU type/count:
+       - **none** or **A30:x (e.g. **A30:1**)
+  bc_num_slots: 1
   r_version:
     display: true
     widget: "select"
     label: "R/RStudio version"
     options:
-       - [ "Latest", "latest" ]
-       - [ "R 4.4.3/RStudio 2024.12.1 Build 563", "4.4.3" ]
-       - [ "R/RStudio 4.4.2", "4.4.2" ]
-       - [ "R/RStudio 4.4.1", "4.4.1" ]
-  memtask:
-    display: true
-    widget: "text_field"
-    value: "default"
-    label: "Memory per job"
-    help: |
-      - **default** - Use default, 4 GB per task.
-      - **512M** - Use 512 MB.
-      - **128G** - Use 128 GB, this is the maximum on red-shared-short.
-  gpu_type:
-    label: "GPU type:count"
-    help: |
-      - <a href='https://www.chpc.utah.edu/documentation/guides/gpus-accelerators.php#overview'>GPU specification</A>
-      - GPU type:
-          - **none** - No GPU
-          - **a30** - Tesla A30 GPU(s) (double precision)
-      - GPU count: 
-          - Specify count with :count after the GPU name (e.g. **v100:2**)
-    value: "none"
+      - ["Latest", "latest"]
+      - ["R 4.4.3/RStudio 2024.12.1 Build 563", "4.4.3"]
+      - ["R/RStudio 4.4.2", "4.4.2"]
+      - ["R/RStudio 4.4.1", "4.4.1"]
   qos:
-     label: "QoS (Quality of Service level)"
-     widget: "select"
-     options:
-        - [ "Normal (64 cpus, 12hrs)","normal" ]
-        - [ "Small (475 cpus, 90 days)", "small" ]
-        - [ "Large (1425 cpus, 1 day)", "large" ]
-        - [ "X-Large (1800 cpus, 4 hrs)", "xlarge" ]
-        - [ "Medium (950 cpus, 45 days)", "medium" ]
-        - [ "XX-Large (3000 cpus, 12 hrs)", "xxlarge" ]
-        - [ "PartSmall (250 cpus, 90 days)", "partsmall" ]
+    label: "QoS (Quality of Service level)"
+    widget: "select"
+    value: "normal"
+    options:
+      - ["Normal (64 cpus, 12hrs)", "normal"]
+      - ["PartSmall (250 cpus, 90 days)", "partsmall"]
+      - ["Small (475 cpus, 90 days)", "small"]
+      - ["Medium (950 cpus, 45 days)", "medium"]
+      - ["Large (1425 cpus, 1 day)", "large"]
+      - ["X-Large (1800 cpus, 4 hrs)", "xlarge"]
+      - ["XX-Large (3000 cpus, 12 hrs)", "xxlarge"]
+
 form:
   - r_version
-  - num_cores
-  - bc_num_hours
-  - memtask
+  - bc_account
   - bc_queue
+  - bc_num_hours
+  - bc_num_cores
+  - bc_mem
+  - bc_num_gpu
+  - bc_num_slots
   - qos
-  - gpu_type
-  - bc_email_on_started
-
+  # - bc_email_on_started
