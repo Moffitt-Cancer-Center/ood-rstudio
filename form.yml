@@ -3,6 +3,8 @@ title: "RStudio Server"
 cluster: "slurm"
 description: |
   This app will launch RStudio server on one Red node. 
+
+  **NOTE - If this is the first time you are starting this new Rstudio app, please allow for up to 5 minutes while the container builds. You can check the progress of the build in the 'output.log' file.**
 attributes:
   bc_queue: "red"
   bc_account: null
@@ -30,6 +32,8 @@ attributes:
       - ["Reserve 128GB", "128G"]
       - ["Reserve 256GB", "256G"]
       - ["Reserve 512GB", "512G"]
+      - ["Reserve 768GB", "768G"]
+      - ["Reserve 1024GB", "1024G"]
   bc_num_cores:
     widget: "number_field"
     label: "Number of CPU Cores"
@@ -45,8 +49,7 @@ attributes:
       - ["No GPU required", "0"]
       - ["Single(1) GPU", "1"]
     help: |
-       - GPU type/count:
-       - **none** or **A30:x (e.g. **A30:1**)
+       - **none** or **A30:x (e.g. A30:1)**
   bc_num_slots: 1
   r_version:
     display: true
@@ -57,6 +60,9 @@ attributes:
       - ["R 4.4.3/RStudio 2024.12.1 Build 563", "4.4.3"]
       - ["R/RStudio 4.4.2", "4.4.2"]
       - ["R/RStudio 4.4.1", "4.4.1"]
+      - ["R/RStudio Latest-modified", "modified"]
+    help: |
+      Version of Rstudio to build
   qos:
     label: "QoS (Quality of Service level)"
     widget: "select"

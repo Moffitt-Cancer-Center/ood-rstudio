@@ -26,6 +26,6 @@ script:
     # GPU selection. Checks if GPU was selected
     - "--gres=gpu:<%= bc_num_gpu.blank? ? "0" : bc_num_gpu.to_i %>"
     # Set the job name (for squeue output)
-    - "--job-name=ood-dev-rstudio-container_<%= ENV['USER'] %>_<%= date %>"
+    - "--job-name=ood-rstudio-container_<%= ENV['USER'] %>_<%= date %>"
     # Set the qos
     - "--qos=<%= qos %>"

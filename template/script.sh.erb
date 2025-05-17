@@ -65,7 +65,13 @@ RSTUDIO_RSESSION="${BIN_DIR}/rsession.sh"
 # Anything exported to apptainer environment must
 # be preceded with APPTAINERENV
 export APPTAINERENV_RSTUDIO_PASSWORD="$password"
-export RSTUDIO_CONTAINER_URI=docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION
+
+if [ "$R_VERSION" = "modified" ]; then
+  export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-rstudio-modified:latest"
+    else
+  export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION"
+          fi
+#export RSTUDIO_CONTAINER_URI=docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION
 #
 # Initialize environment for execution.
 mkdir -p ${LOG_DIR}
@@ -75,6 +81,7 @@ echo "`date`: Using docker URI $RSTUDIO_CONTAINER_URI" >> ${JOB_LOG}
 # setup_env
 # Load the required environment. Since we are using containers, there
 # is not much to setup.
+source /etc/profile.d/modules.sh
 export MODULEPATH=$MODULEPATH:/app/eb/modules/all:/app/other/modules
 setup_env () {
   module purge
