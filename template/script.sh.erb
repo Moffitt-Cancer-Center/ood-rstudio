@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-
 # This script start up rstudio server from a container. It originates
 # from a template script with minimal ood processing parameters.
 # 
@@ -13,7 +12,6 @@
 #  - setup environment variables
 #  - setup paths (permanent and temporary) for system logs, configs, etc
 #  - execute (in container) rstudio server
-
 
 ##################################################################
 #-
@@ -33,18 +31,15 @@ create_db_config() {
       printf "provider=sqlite\ndirectory=/var/lib/rstudio-server\n" > ${DB_CF}
    fi
 }
-
 ###################################################################
-#-
-#- Directories
+#
 # Several key variables needed through the script.
 # session is from OOD
-# WORKING_DIR (session_dir)
-# LOG_DIR (WORKING_DIR/logs)
-# TMP_DIR (unique temp directory)
-#
+# - WORKING_DIR (session_dir)
+# - LOG_DIR (WORKING_DIR/logs)
+# - TMP_DIR (unique temp directory)
+
 WORKING_DIR="<%= session.staged_root %>"
-#R_VERSION="session.r_version"
 R_VERSION="<%= context.r_version %>"
 LOG_DIR="${WORKING_DIR}/log"  #  local logging output
 BIN_DIR="${WORKING_DIR}/bin"    # local bin (for session-specific tasks)
@@ -61,34 +56,38 @@ RSTUDIO_VAR_LOG=${LOG_DIR}
 RSTUDIO_AUTH="${BIN_DIR}/auth"
 RSTUDIO_RSESSION="${BIN_DIR}/rsession.sh"
 
-#
-# Anything exported to apptainer environment must
-# be preceded with APPTAINERENV
+# "APPTAINERENV" must preceed anything exported to apptainer environment.
 export APPTAINERENV_RSTUDIO_PASSWORD="$password"
-export RSTUDIO_CONTAINER_URI=docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION
-#
+if [ "$R_VERSION" = "modified" ]; then
+  export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-rstudio-modified:latest"
+else
+  if [ "$R_VERSION" = "ml" ]; then
+    export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker_multi:latest"
+  else
+    export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION"
+  fi
+fi
+
 # Initialize environment for execution.
 mkdir -p ${LOG_DIR}
 echo "`date`: Initializing RStudio environment" >> ${JOB_LOG}
 echo "`date`: R Version $R_VERSION" >> ${JOB_LOG}
 echo "`date`: Using docker URI $RSTUDIO_CONTAINER_URI" >> ${JOB_LOG}
+
 # setup_env
-# Load the required environment. Since we are using containers, there
-# is not much to setup.
-export MODULEPATH=$MODULEPATH:/app/eb/modules/all:/app/other/modules
+# Load the required environment. Containers shouldn't need much...
 setup_env () {
+  source /etc/profile.d/modules.sh
+  export MODULEPATH=$MODULEPATH:/app/eb/modules/all:/app/other/modules
   module purge
 }
 setup_env
 
-
 ####################################################################
 #- workspace_init
-# There is persistant rstudio state that is used. When running as a
-# container, rstudio will default to system locations for rstudio server
-# components. Note that session components are already managed under 
-# ~/.local/share/rstudio. We need to create a local version of this 
-# system state and setup apptainer bind points to override the system locations.
+# A persistant rstudio state is used. The rstudio container defaults to system locations for 
+# rstudio server components. Session components are already managed in ~/.local/share/rstudio.
+# We create a local ver of this system state and setup bind points to override the system locations.
 #
 # There are several key directories/files that are needed:
 #  - /var/log/rstudio
@@ -113,10 +112,7 @@ create_db_config "${RSTUDIO_ETC}/database.conf"
 ########################################
 # apptainer variables
 # https://apptainer.org/docs/user/main/cli/apptainer_exec.html
-#
 
-# Rstudio in a container uses a number of system directories
-# that we redirect to local user-level locations. 
 BIND_POINTS=""\
 "${RSTUDIO_ETC}/database.conf:/etc/rstudio/database.conf,"\
 "${RSTUDIO_ETC}/logging.conf:/etc/rstudio/logging.conf,"\
@@ -124,28 +120,18 @@ BIND_POINTS=""\
 "${RSTUDIO_VAR_LIB}:/var/lib/rstudio-server,"\
 "${RSTUDIO_VAR_RUN}:/run/rstudio-server,"\
 "${TMP_DIR}:/tmp"
-#
+
 echo "`date`: Bind points for container:" >> ${JOB_LOG}
 echo "$BIND_POINTS" | tr ',' '\n' >> ${JOB_LOG}
-#
-#
-#
-#
-#
+
 # rsession
-
-#
-
 ########################################
 # rstudio variables
 # See https://docs.posit.co/ide/server-pro/reference/rserver_conf.html
 
-
-# Note, containerized rserver starts with user space environment 
-# defined on host.
-# BUT, the rsession that is spawned from rserver starts on 
-# limited environment, only related to R = no SLURM*, http*, ...
-# so anything we want to pass to rsession needs to be set in 
+# Containerized rserver starts with user space environment defined on host, but 
+# the spawned rsession from rserver starts on limited environment, only related 
+# to R = no SLURM*, http*, ...so anything passed to rsession needs to be set in 
 # $RSTUDIO_RESSION wrapper script.
 (
 umask 077
@@ -155,23 +141,17 @@ sed 's/^ \{2\}//' > "${RSTUDIO_RSESSION}" << EOL
 # Log all output from this script
 export RSESSION_LOG_FILE="${LOG_DIR}/rsession.log"
 
-# workaround over Bob's hard coded http_proxy in the container
-#  export http_proxy="http://uaserve.cc.vt.edu:8080"
-#  export https_proxy="http://uaserve.cc.vt.edu:8080"
-
 exec &>>"\${RSESSION_LOG_FILE}"
 set -x
 
-# Per existing scripts, the script needs some explicit envvars
-# set here.
+# Per existing scripts, some explicit envvars set here.
 export TZ="US/Eastern"
 export HOME="$HOME"
 export R_LIBS_SITE="$R_LIBS_SITE"
-# Set OMP_NUM_THREADS to prevent OpenBLAS (and any other OpenMP-enhanced
-# libraries used by R) from spawning more threads than the number of processors
-# allocated to the job.
-#
+
+# Prevent OpenMP-enhanced libraries from spawning more threads 
 export OMP_NUM_THREADS=${SLURM_JOB_CPUS_PER_NODE}
+
 # Launch the original command
 echo "Launching rsession..."
 exec /usr/lib/rstudio-server/bin/rsession "\${@}"
@@ -179,39 +159,32 @@ EOL
 )
 chmod 700 "${RSTUDIO_RSESSION}"
 
-
 ###########################
 # Launch the RStudio Server
 
 # Set working directory to home directory
-# As a stand-alone script, starting at $HOME doesn't make sense
-# but given ood, perhaps that is the safest starting point. The
-# OSC template uses this.
 cd "${HOME}"
 
 # Output debug info
-# NB: Consider making this a more user-readable version (like in my script)
 printf "`date`: Module list\n\t" >> ${JOB_LOG}
 module list 2>> ${JOB_LOG}
 echo "`date`: Executing rstudio server on `hostname`." >> ${JOB_LOG}
-#
+
 ## fix rstudio active session error on start
 current_state_files=$(echo ~/.local/share/rstudio/sessions/active/*/session-persistent-state)
 for f in $current_state_files; do
-   echo "`date`: Fixing potential rstudio session failure error states in $f" >> ${JOB_LOG}
-   sed -i -e 's/abend="[1-2]"/abend="0"/' $f
+  if [ -f "$f" ]; then
+    echo "`date`: Fixing potential rstudio session failure error states in $f" >> ${JOB_LOG}
+    sed -i -e 's/abend="[1-2]"/abend="0"/' $f
+  else
+    echo "$f doesn't exists. Continuing..." >> ${JOB_LOG}
+  fi
 done
 
 set -x
 echo "`date`: Starting up rserver..." >> ${JOB_LOG}
 
-
 # Container startup
-# 
-# Authentication:
-#   - auth-none actually enables authentication (0 is false, for auth-none)
-#   - login/password helper is in bin/auth (simple script)
-#   - don't encrypt passwords since the auth script is simple
 apptainer exec \
 	-B "${BIND_POINTS}" \
 	"$RSTUDIO_CONTAINER_URI" \
@@ -226,5 +199,4 @@ apptainer exec \
                 --secure-cookie-key-file "${TMP_DIR}/rstudio-server/secure-cookie-key" \
                 --database-config-file "${DB_CF}" \
 		--server-user "${USER}"
-#		--auth-pam-require-password-prompt=0 \
-
+		--nv

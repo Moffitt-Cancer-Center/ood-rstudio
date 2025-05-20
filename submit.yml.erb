@@ -10,22 +10,10 @@ script:
   wall_time: "<%= (bc_num_hours.blank? ? 1 : bc_num_hours.to_i) * 3600 %>"
   copy_environment: true
   native:
-    # -N is node count. RStudio can only run on a single node.
     - "--nodes=<%= bc_num_slots.blank? ? 1 : bc_num_slots.to_i %>"
-    # Number of cpus per task (one task)
     - "--cpus-per-task=<%= bc_num_cores.blank? ? 1 : bc_num_cores.to_i %>"
-    # -n is number of tasks. RStudio is a multi-threaded app,
-    # although it is the case that R (rsession) is a child
-    # process as are terminals. However, in all of these cases,
-    # at least for default purposes, we want them to run on the
-    # same node to avoid confusion.
     - "--ntasks=1"
-    # Memory. Since this is a single-node application, the memory
-    # requested is the total (--mem) for the job.
     - "--mem=<%= bc_mem.blank? ? 4 : bc_mem.to_i %>G"
-    # GPU selection. Checks if GPU was selected
     - "--gres=gpu:<%= bc_num_gpu.blank? ? "0" : bc_num_gpu.to_i %>"
-    # Set the job name (for squeue output)
     - "--job-name=ood-dev-rstudio-container_<%= ENV['USER'] %>_<%= date %>"
-    # Set the qos
     - "--qos=<%= qos %>"

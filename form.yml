@@ -4,7 +4,7 @@ cluster: "slurm"
 description: |
   This app will launch RStudio server on one Red node. 
 attributes:
-  bc_queue: "red"
+  bc_queue: "blue"
   bc_account: null
   bc_num_hours:
     widget: "number_field"
@@ -30,6 +30,8 @@ attributes:
       - ["Reserve 128GB", "128G"]
       - ["Reserve 256GB", "256G"]
       - ["Reserve 512GB", "512G"]
+      - ["Reserve 768GB", "768G"]
+      - ["Reserve 1024GB", "1024G"]
   bc_num_cores:
     widget: "number_field"
     label: "Number of CPU Cores"
@@ -54,9 +56,15 @@ attributes:
     label: "R/RStudio version"
     options:
       - ["Latest", "latest"]
+      - ["Latest-modified", "modified"]
+      - ["Latest-ML", "ml"]
       - ["R 4.4.3/RStudio 2024.12.1 Build 563", "4.4.3"]
       - ["R/RStudio 4.4.2", "4.4.2"]
       - ["R/RStudio 4.4.1", "4.4.1"]
+    help: |
+      - **Latest** - Latest Rocker RStudio build from [dockerhub.moffitt.org]
+      - **Latest-modified** - **Latest** with some additional packages built into the image
+      - **Latest-ML** - Latest Rocker RStudio ML container
   qos:
     label: "QoS (Quality of Service level)"
     widget: "select"
