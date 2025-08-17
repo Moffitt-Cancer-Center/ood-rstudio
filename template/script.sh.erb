@@ -49,6 +49,7 @@ JOB_LOG="${LOG_DIR}/job_startup.log"
 ## We maintain configuration across jobs in ~/.local/share/rstudio_server
 RSTUDIO_SERVER_DIR=${HOME}/.local/share/rstudio_server
 RSTUDIO_VAR_LIB=${RSTUDIO_SERVER_DIR}/var/lib
+RSTUDIO_OPT_SHARE=${RSTUDIO_SERVER_DIR}/opt/share
 RSTUDIO_VAR_RUN=${WORKING_DIR}/var/run
 RSTUDIO_ETC=${RSTUDIO_SERVER_DIR}/etc
 RSTUDIO_VAR_LOG=${LOG_DIR}
@@ -58,14 +59,22 @@ RSTUDIO_RSESSION="${BIN_DIR}/rsession.sh"
 
 # "APPTAINERENV" must preceed anything exported to apptainer environment.
 export APPTAINERENV_RSTUDIO_PASSWORD="$password"
+#if [ "$R_VERSION" = "modified" ]; then
+#  export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-rstudio-modified:latest"
+#else
+#  if [ "$R_VERSION" = "ml" ]; then
+#    export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-multi:latest"
+#  else
+#    export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION"
+#  fi
+#fi
+
 if [ "$R_VERSION" = "modified" ]; then
   export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-rstudio-modified:latest"
+elif [ "$R_VERSION" = "ml" ]; then
+  export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-multi:latest"
 else
-  if [ "$R_VERSION" = "ml" ]; then
-    export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker_multi:latest"
-  else
-    export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION"
-  fi
+  export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION"
 fi
 
 # Initialize environment for execution.
@@ -97,6 +106,7 @@ setup_env
 mkdir -p -m 700 \
 	"${RSTUDIO_SERVER_DIR}" \
 	"${RSTUDIO_ETC}" \
+	"${RSTUDIO_OPT_SHARE}" \
 	"${RSTUDIO_VAR_LOG}" \
 	"${RSTUDIO_VAR_LIB}" \
 	"${RSTUDIO_VAR_RUN}"
@@ -119,6 +129,7 @@ BIND_POINTS=""\
 "${RSTUDIO_VAR_LOG}:/var/log/rstudio,"\
 "${RSTUDIO_VAR_LIB}:/var/lib/rstudio-server,"\
 "${RSTUDIO_VAR_RUN}:/run/rstudio-server,"\
+"${RSTUDIO_OPT_SHARE}:/opt/share,"\
 "${TMP_DIR}:/tmp"
 
 echo "`date`: Bind points for container:" >> ${JOB_LOG}

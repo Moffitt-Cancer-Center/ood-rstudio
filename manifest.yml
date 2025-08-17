@@ -1,10 +1,10 @@
 ---
-name: Apptainer RStudio Server on Red
+name: Beta Apptainer RStudio
 category: Interactive Apps
-subcategory: Servers
+subcategory: Beta Apps
 role: batch_connect
 description: |
-  This app launches RStudio Server Apptainer container on one node of the Red cluster.
+  This app launches a **Beta** RStudio container on one node of the Red cluster.
 
-  [RStudio Server]: https://www.rstudio.com/products/rstudio-server/
-  [R]: https://www.r-project.org/
+  **Please let the HPC Team know of any issues or improvements that needs to be made
+  to this and the other 'Beta' apps while they are in the testing phase.

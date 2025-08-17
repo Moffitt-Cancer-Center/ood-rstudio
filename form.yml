@@ -1,5 +1,8 @@
 ---
-title: "RStudio Server"
+tile:
+  title: "Beta RStudio Server"
+  border_color: "light green"
+  sub_caption: "Empower Your Analysis"
 cluster: "slurm"
 description: |
   This app will launch RStudio server on one Red node. 
@@ -56,16 +59,16 @@ attributes:
     widget: "select"
     label: "R/RStudio version"
     options:
+      - ["Latest-ML", "ml"]
       - ["Latest", "latest"]
       - ["Latest-modified", "modified"]
-      - ["Latest-ML", "ml"]
       - ["R 4.4.3/RStudio 2024.12.1 Build 563", "4.4.3"]
       - ["R/RStudio 4.4.2", "4.4.2"]
       - ["R/RStudio 4.4.1", "4.4.1"]
     help: |
+      - **Latest-ML** - Latest Rocker RStudio ML container
       - **Latest** - Latest Rocker RStudio build from [dockerhub.moffitt.org]
       - **Latest-modified** - **Latest** with some additional packages built into the image
-      - **Latest-ML** - Latest Rocker RStudio ML container
   qos:
     label: "QoS (Quality of Service level)"
     widget: "select"
