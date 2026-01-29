@@ -1,6 +1,6 @@
 ---
 tile:
-  title: "Beta RStudio Server"
+  title: "RStudio Server"
   border_color: "light green"
   sub_caption: "Empower Your Analysis"
 cluster: "slurm"
@@ -36,7 +36,7 @@ attributes:
       - ["Reserve 256GB", "256G"]
       - ["Reserve 512GB", "512G"]
       - ["Reserve 768GB", "768G"]
-      - ["Reserve 1024GB", "1024G"]
+      - ["Reserve 960GB", "960G"]
   bc_num_cores:
     widget: "number_field"
     label: "Number of CPU Cores"
@@ -65,6 +65,7 @@ attributes:
       - ["R 4.4.3/RStudio 2024.12.1 Build 563", "4.4.3"]
       - ["R/RStudio 4.4.2", "4.4.2"]
       - ["R/RStudio 4.4.1", "4.4.1"]
+      - ["dontuse", "dontuse"]
     help: |
       - **Latest-ML** - Latest Rocker RStudio ML container
       - **Latest** - Latest Rocker RStudio build from [dockerhub.moffitt.org]

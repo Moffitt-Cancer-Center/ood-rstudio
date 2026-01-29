@@ -15,5 +15,5 @@ script:
     - "--ntasks=1"
     - "--mem=<%= bc_mem.blank? ? 4 : bc_mem.to_i %>G"
     - "--gres=gpu:<%= bc_num_gpu.blank? ? "0" : bc_num_gpu.to_i %>"
-    - "--job-name=ood-beta-rstudio-container_<%= ENV['USER'] %>_<%= date %>"
+    - "--job-name=ood-rstudio-cont_<%= ENV['USER'] %>_<%= date %>::app=OOD-rstudio-cont,"
     - "--qos=<%= qos %>"

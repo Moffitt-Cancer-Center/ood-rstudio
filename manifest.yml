@@ -1,7 +1,7 @@
 ---
-name: Beta Apptainer RStudio
+name: RStudio
 category: Interactive Apps
-subcategory: Beta Apps
+subcategory: Active Production Apps
 role: batch_connect
 description: |
   This app launches a **Beta** RStudio container on one node of the Red cluster.

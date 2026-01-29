@@ -73,6 +73,8 @@ if [ "$R_VERSION" = "modified" ]; then
   export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-rstudio-modified:latest"
 elif [ "$R_VERSION" = "ml" ]; then
   export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-multi:latest"
+elif [ "$R_VERSION" = "dontuse" ]; then
+    export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-dontuse:latest"
 else
   export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION"
 fi
