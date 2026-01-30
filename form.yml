@@ -1,16 +1,30 @@
 ---
 tile:
   title: "RStudio Server"
-  border_color: "light green"
+  border_color: "light blue"
   sub_caption: "Empower Your Analysis"
-cluster: "slurm"
-description: |
-  This app will launch RStudio server on one Red node. 
 
-  **NOTE - If this is the first time you are starting this new Rstudio app, please allow for up to 5 minutes while the container builds. You can check the progress of the build in the 'output.log' file.**
+cluster: "slurm"
+
+form:
+  - auto_qos
+  - auto_mem
+  - auto_cores
+  - bc_num_gpu
+  - bc_num_hours
+  - bc_num_slots
+  - bc_queue
+  # App-specific parameters below
+  - conda_env
+  - r_version
+
+
+
+
+
 attributes:
   bc_queue: "red"
-  bc_account: null
+
   bc_num_hours:
     widget: "number_field"
     label: "Runtime [hours]"
@@ -19,32 +33,17 @@ attributes:
     min: 1
     max: 336
     step: 1
-  bc_mem:
-    widget: "select"
-    label: "Maximum Memory (GB)"
-    help: Memory to allocate for job
-    value: "1G"
-    options:
-      - ["Reserve 1GB", "1G"]
-      - ["Reserve 2GB", "2G"]
-      - ["Reserve 4GB", "4G"]
-      - ["Reserve 8GB", "8G"]
-      - ["Reserve 16GB", "16G"]
-      - ["Reserve 32GB", "32G"]
-      - ["Reserve 64GB", "64G"]
-      - ["Reserve 128GB", "128G"]
-      - ["Reserve 256GB", "256G"]
-      - ["Reserve 512GB", "512G"]
-      - ["Reserve 768GB", "768G"]
-      - ["Reserve 960GB", "960G"]
-  bc_num_cores:
-    widget: "number_field"
-    label: "Number of CPU Cores"
-    help: Number of cores to allocate
+
+  bc_num_slots: 1
+
+  auto_cores:
     value: 1
-    min: 1
-    max: 64
-    step: 1
+    help: Cores to allocate for job.
+
+  auto_mem:
+    value: "2"
+    help: Memory to allocate for job.
+
   bc_num_gpu:
     widget: "select"
     label: "GPU:count"
@@ -52,8 +51,17 @@ attributes:
       - ["No GPU required", "0"]
       - ["Single(1) GPU", "1"]
     help: |
-       - **none** or **A30:x (e.g. A30:1)**
-  bc_num_slots: 1
+      - **none** or **A30:x (e.g. A30:1)**  
+  
+  auto_qos:
+    value: "normal"
+    help: Default is usually fine.
+
+  auto_conda:
+    placeholder: "Optional: Choose a local Conda env"
+    label: "Conda Env (optional)"
+
+  # App-specific attributes below
   r_version:
     display: true
     widget: "select"
@@ -65,32 +73,8 @@ attributes:
       - ["R 4.4.3/RStudio 2024.12.1 Build 563", "4.4.3"]
       - ["R/RStudio 4.4.2", "4.4.2"]
       - ["R/RStudio 4.4.1", "4.4.1"]
-      - ["dontuse", "dontuse"]
+      # - ["dontuse", "dontuse"]
     help: |
       - **Latest-ML** - Latest Rocker RStudio ML container
       - **Latest** - Latest Rocker RStudio build from [dockerhub.moffitt.org]
       - **Latest-modified** - **Latest** with some additional packages built into the image
-  qos:
-    label: "QoS (Quality of Service level)"
-    widget: "select"
-    value: "normal"
-    options:
-      - ["Normal (64 cpus, 12hrs)", "normal"]
-      - ["PartSmall (250 cpus, 90 days)", "partsmall"]
-      - ["Small (475 cpus, 90 days)", "small"]
-      - ["Medium (950 cpus, 45 days)", "medium"]
-      - ["Large (1425 cpus, 1 day)", "large"]
-      - ["X-Large (1800 cpus, 4 hrs)", "xlarge"]
-      - ["XX-Large (3000 cpus, 12 hrs)", "xxlarge"]
-
-form:
-  - r_version
-  - bc_account
-  - bc_queue
-  - bc_num_hours
-  - bc_num_cores
-  - bc_mem
-  - bc_num_gpu
-  - bc_num_slots
-  - qos
-  # - bc_email_on_started
