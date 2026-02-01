@@ -11,9 +11,13 @@ script:
   copy_environment: true
   native:
     - "--nodes=<%= bc_num_slots.blank? ? 1 : bc_num_slots.to_i %>"
-    - "--cpus-per-task=<%= bc_num_cores.blank? ? 1 : bc_num_cores.to_i %>"
+    - "--cpus-per-task=<%= auto_cores.blank? ? 1 : auto_cores.to_i %>"
     - "--ntasks=1"
-    - "--mem=<%= bc_mem.blank? ? 4 : bc_mem.to_i %>G"
-    - "--gres=gpu:<%= bc_num_gpu.blank? ? "0" : bc_num_gpu.to_i %>"
-    - "--job-name=ood-rstudio-cont_<%= ENV['USER'] %>_<%= date %>::app=OOD-rstudio-cont,"
-    - "--qos=<%= qos %>"
+    - "--mem=<%= auto_mem.blank? ? 2 : auto_mem.to_i %>G"
+    - "--gres=gpu:<%= bc_num_gpu.blank? || bc_num_gpu.to_i == 0 ? '0' : '1' %>"
+    - "--job-name=ood-rstudio-cont_<%= ENV['USER'] %>_<%= date %>::app=OOD-rstudio-cont"
+    - "--qos=<%= auto_qos.blank? ? 'normal' : auto_qos %>"
+    - "--partition=<%= bc_queue.blank? ? 'red' : bc_queue %>"
+<% if !reservation.blank? && !reservation.strip.empty? %>
+    - "--reservation=<%= reservation.strip %>"
+<% end %>

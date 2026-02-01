@@ -7,24 +7,39 @@ tile:
 cluster: "slurm"
 
 form:
-  - auto_qos
-  - auto_mem
-  - auto_cores
   - bc_num_gpu
+  - auto_cores
+  - auto_mem
   - bc_num_hours
   - bc_num_slots
   - bc_queue
+  # Advanced options toggle
+  - show_advanced
+  - auto_qos
+  - auto_conda
   # App-specific parameters below
   - conda_env
   - r_version
-
+  - reservation
 
 
 
 
 attributes:
-  bc_queue: "red"
-
+  auto_cores:
+    value: 1
+    help: Cores to allocate for job.
+  
+  auto_mem:
+    value: "2"
+    help: Memory to allocate for job.
+  
+  bc_num_gpu:
+    widget: check_box
+    checked_value: 1
+    unchecked_value: 0
+    label: "Request a GPU (NVidia A30)"
+  
   bc_num_hours:
     widget: "number_field"
     label: "Runtime [hours]"
@@ -33,33 +48,31 @@ attributes:
     min: 1
     max: 336
     step: 1
-
-  bc_num_slots: 1
-
-  auto_cores:
-    value: 1
-    help: Cores to allocate for job.
-
-  auto_mem:
-    value: "2"
-    help: Memory to allocate for job.
-
-  bc_num_gpu:
-    widget: "select"
-    label: "GPU:count"
-    options:
-      - ["No GPU required", "0"]
-      - ["Single(1) GPU", "1"]
-    help: |
-      - **none** or **A30:x (e.g. A30:1)**  
   
-  auto_qos:
-    value: "normal"
-    help: Default is usually fine.
-
+  bc_num_slots: 1
+  
+  bc_queue: "red"
+  
+  show_advanced:
+    widget: "check_box"
+    label: "Show Advanced Options"
+    help: "Check to show advanced options (QoS, Conda environment, and Reservation)"
+    value: 0
+  
   auto_conda:
     placeholder: "Optional: Choose a local Conda env"
     label: "Conda Env (optional)"
+    help: "Select a conda environment to use (optional). If selected, the environment will be available inside the container for development."
+  
+  auto_qos:
+    value: "normal"
+    help: "Default is usually fine."
+
+  reservation:
+    widget: "text_field"
+    label: "Enter Reservation Name"
+    value: ""
+    help: "If you have a reservation, enter the reservation name here to use it for this job."
 
   # App-specific attributes below
   r_version:

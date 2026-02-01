@@ -1,44 +1,58 @@
-# Open OnDemand RStudio Server App (Apptainer) - Moffitt HPC Customization
+# Open OnDemand RStudio Server App (Apptainer) - Moffitt HPC
 
-This repository contains the necessary files to deploy an RStudio Server application within an Apptainer container on an Open OnDemand (OOD) platform, specifically customized for the Moffitt HPC environment. This setup provides a consistent and reproducible environment for R development, ensuring that users have access to the required R packages and dependencies without needing to manage them directly on the shared OOD system. This implementation includes specific configurations for authentication, logging, and persistent state management tailored to this environment.
+This repository contains the necessary files to deploy an RStudio Server application within an Apptainer container on an Open OnDemand (OOD) platform, specifically customized for the Moffitt HPC environment. This setup provides a consistent and reproducible environment for R development.
 
-**Important:** This README and the associated scripts are highly customized for the Moffitt HPC environment. They may not be directly applicable to other systems without significant modification.
+**Important:** This app is highly customized for the Moffitt HPC environment and may require modifications for other systems.
 
 ## Features
 
-*   **Containerized Environment:** RStudio Server runs inside an Apptainer container, isolating it from the host system and ensuring consistent behavior. Uses a specific Docker image from Docker Hub.
-*   **Reproducibility:** The Apptainer container image encapsulates the entire R environment, including R version, installed packages, and system libraries, making it easy to reproduce results.
-*   **Simplified Dependency Management:** Users don't need to install R packages or manage dependencies on the OOD system. All dependencies are pre-installed within the container.
-*   **Easy Deployment:** The provided OOD app simplifies the deployment and management of the RStudio Server application.
-*   **Custom Authentication:** Uses a PAM-based authentication helper script for secure user login.
-*   **Persistent State:** RStudio Server state (e.g., project settings, package installations) is persisted across sessions using bind mounts to the user's home directory.
-*   **Custom Logging:** Configured for detailed logging to a session-specific directory.
-*   **Temporary Directory Management:** Uses a unique temporary directory for each session.
-*   **R Version Control:** Allows specifying the R version via the OOD form.
+* **Containerized Environment:** RStudio Server runs inside an Apptainer container using Docker images from `dockerhub.moffitt.org/ood/rocker-multi`
+* **Version Selection:** Choose between multiple R/RStudio versions including Latest, Latest-ML, and specific versions
+* **GPU Support:** Optional NVIDIA A30 GPU allocation via checkbox selection
+* **Conda Environment Integration:** Optional conda environment binding for custom R/Python packages
+* **Persistent State:** RStudio Server state persists across sessions via bind mounts
+* **Custom Authentication:** PAM-based authentication for secure user login
+* **Advanced Options:** QoS tier selection, conda environment, and reservation support available via toggle
 
 ## Prerequisites
 
-*   **Open OnDemand Installation:** You must have a working Open OnDemand installation.
-*   **Apptainer Installation:** Apptainer (Singularity) must be installed and configured on your OOD system.
-*   **Docker Image:** The system relies on a specific Docker image: `dockerhub.moffitt.org/hpc/rocker-rstudio`. Ensure this image is accessible to your Apptainer installation. Contact your HPC administrator if you have questions about image availability.
-*   **PAM Configuration:** The system uses PAM for authentication. Ensure that PAM is configured correctly on the compute nodes.
-*   **Shared Filesystem:** Users' home directories must be accessible from the compute nodes where the RStudio Server instances will run.
+* Open OnDemand installation (version 2.0+)
+* Apptainer/Singularity installed on compute nodes
+* Access to `dockerhub.moffitt.org/ood/rocker-multi` container images
+* Slurm job scheduler
+* Shared filesystem accessible from compute nodes
+* PAM configuration on compute nodes
+
+## Form Fields
+
+### Basic Options
+
+* **Request GPU:** Checkbox to request 1 NVIDIA A30 GPU
+* **Cores:** Number of CPU cores (default: 1)
+* **Memory (GB):** Memory allocation in GB (default: 2)
+* **Runtime (hours):** Job walltime in hours (1-336, default: 1)
+* **Nodes:** Number of nodes (default: 1)
+* **Partition:** Slurm partition (default: red)
+* **R/RStudio Version:** Select from available versions
+  - Latest-ML: ML-optimized with GPU support
+  - Latest: Standard latest build
+  - Latest-modified: Latest with additional packages
+  - Specific versions (4.4.3, 4.4.2, 4.4.1)
+
+### Advanced Options (Hidden by default)
+
+* **Show Advanced Options:** Checkbox to reveal advanced settings
+* **QoS:** Quality of Service tier (default: normal)
+* **Conda Environment:** Optional conda environment name to bind into container
+* **Reservation:** Optional Slurm reservation name
 
 ## Installation
 
-1.  **Clone the Repository:**
+1. **Copy the app directory:**
 
     ```bash
-    git clone https://github.com/<your-username>/ood-rstudio-apptainer.git
-    cd ood-rstudio-apptainer
-    ```
-
-2.  **Copy the App to the OOD Apps Directory:**
-
-    Copy the `rstudio-apptainer` directory to the appropriate OOD apps directory. Consult your OOD administrator for the correct location. This is typically located at `/var/www/ood/apps/sys/` for system apps or `~/ood/apps/dev/` for development apps.
-
-    ```bash
-    sudo cp -r rstudio-apptainer /var/www/ood/apps/sys/
+    # For system-wide deployment
+    sudo cp -r rstudio /var/www/ood/apps/sys/
     # OR
     cp -r rstudio-apptainer ~/ood/apps/dev/
     ```
