@@ -186,15 +186,21 @@ EOF
 # apptainer variables
 # https://apptainer.org/docs/user/main/cli/apptainer_exec.html
 
+# Bind RSTUDIO_ETC as a directory (not individual files).
+# Apptainer cannot bind-mount a file to a target path that does not already
+# exist inside the container. Stock Rocker images do not ship an
+# /etc/rstudio/rserver.conf, so a file-level bind silently fails.
+# Binding the whole directory works unconditionally.
 BIND_POINTS=""\
-"${RSTUDIO_RSERVER_CONF}:/etc/rstudio/rserver.conf,"\
-"${RSTUDIO_ETC}/database.conf:/etc/rstudio/database.conf,"\
-"${RSTUDIO_ETC}/logging.conf:/etc/rstudio/logging.conf,"\
+"${RSTUDIO_ETC}:/etc/rstudio,"\
 "${RSTUDIO_VAR_LOG}:/var/log/rstudio,"\
 "${RSTUDIO_VAR_LIB}:/var/lib/rstudio-server,"\
 "${RSTUDIO_VAR_RUN}:/run/rstudio-server,"\
 "${RSTUDIO_OPT_SHARE}:/opt/share,"\
 "${TMP_DIR}:/tmp"
+
+echo "`date`: rserver.conf contents:" >> ${JOB_LOG}
+cat "${RSTUDIO_RSERVER_CONF}" >> ${JOB_LOG}
 
 echo "`date`: Bind points for container:" >> ${JOB_LOG}
 echo "$BIND_POINTS" | tr ',' '\n' >> ${JOB_LOG}

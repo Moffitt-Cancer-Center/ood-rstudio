@@ -27,10 +27,25 @@ fi
 read -s -p "Password: " PASSWORD
 echo ""
 
+# Debug log (written inside container → host TMP_DIR via /tmp bind)
+AUTH_LOG="/tmp/rstudio-server/auth-debug.log"
+mkdir -p "$(dirname "${AUTH_LOG}")" 2>/dev/null
+{
+  echo "$(date): auth called"
+  echo "  USERNAME arg : ${USERNAME}"
+  echo "  USER env     : ${USER}"
+  echo "  passwd file  : ${RSTUDIO_PASSWD_FILE}"
+  echo "  file exists  : $(test -f "${RSTUDIO_PASSWD_FILE}" && echo YES || echo NO)"
+  echo "  stored pw len: ${#RSTUDIO_PASSWORD}"
+  echo "  input  pw len: ${#PASSWORD}"
+} >> "${AUTH_LOG}" 2>/dev/null
+
 if [[ "${USERNAME}" == "${USER}" && "${PASSWORD}" == "${RSTUDIO_PASSWORD}" ]]; then
+  echo "$(date): auth SUCCESS for ${USERNAME}" >> "${AUTH_LOG}" 2>/dev/null
   echo "Successful authentication"
   exit 0
 else
+  echo "$(date): auth FAILURE for ${USERNAME} (user_match=$(test "${USERNAME}" = "${USER}" && echo Y || echo N) pw_match=$(test "${PASSWORD}" = "${RSTUDIO_PASSWORD}" && echo Y || echo N))" >> "${AUTH_LOG}" 2>/dev/null
   echo "Invalid authentication"
   exit 1
 fi
