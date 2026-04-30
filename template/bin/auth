@@ -7,9 +7,19 @@ if [[ $# -lt 1 ]]; then
 fi
 USERNAME="${1}"
 
-# Confirm password environment variable exists
-if [[ -z ${RSTUDIO_PASSWORD} ]]; then
-  echo "The environment variable RSTUDIO_PASSWORD is not set"
+# Read password from file first (reliable across all RStudio Server versions).
+# TMP_DIR is bind-mounted to /tmp in the container, so the file written by
+# script.sh.erb at TMP_DIR/rstudio-server/rstudio-passwd is accessible here
+# at /tmp/rstudio-server/rstudio-passwd.
+# Fall back to the RSTUDIO_PASSWORD env var for backwards compatibility.
+RSTUDIO_PASSWD_FILE="${RSTUDIO_PASSWORD_FILE:-/tmp/rstudio-server/rstudio-passwd}"
+if [[ -f "${RSTUDIO_PASSWD_FILE}" ]]; then
+  RSTUDIO_PASSWORD="$(cat "${RSTUDIO_PASSWD_FILE}")"
+fi
+
+# Confirm a password was resolved
+if [[ -z "${RSTUDIO_PASSWORD}" ]]; then
+  echo "Cannot authenticate: password file not found at ${RSTUDIO_PASSWD_FILE} and RSTUDIO_PASSWORD env var is not set"
   exit 1
 fi
 
@@ -17,7 +27,7 @@ fi
 read -s -p "Password: " PASSWORD
 echo ""
 
-if [[ ${USERNAME} == ${USER} && ${PASSWORD} == ${RSTUDIO_PASSWORD} ]]; then
+if [[ "${USERNAME}" == "${USER}" && "${PASSWORD}" == "${RSTUDIO_PASSWORD}" ]]; then
   echo "Successful authentication"
   exit 0
 else

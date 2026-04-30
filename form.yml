@@ -1,5 +1,8 @@
 ---
-title: "RStudio Server"
+tile:
+  title: "RStudio Server"
+  border_color: "light green"
+  sub_caption: "Empower Your Analysis"
 cluster: "slurm"
 description: |
   This app will launch RStudio server on one Red node. 
@@ -33,7 +36,7 @@ attributes:
       - ["Reserve 256GB", "256G"]
       - ["Reserve 512GB", "512G"]
       - ["Reserve 768GB", "768G"]
-      - ["Reserve 1024GB", "1024G"]
+      - ["Reserve 960GB", "960G"]
   bc_num_cores:
     widget: "number_field"
     label: "Number of CPU Cores"
@@ -55,17 +58,29 @@ attributes:
     display: true
     widget: "select"
     label: "R/RStudio version"
+    value: "ml"
     options:
-      - ["Latest", "latest"]
-      - ["Latest-modified", "modified"]
-      - ["Latest-ML", "ml"]
-      - ["R 4.4.3/RStudio 2024.12.1 Build 563", "4.4.3"]
-      - ["R/RStudio 4.4.2", "4.4.2"]
-      - ["R/RStudio 4.4.1", "4.4.1"]
+      - ["Moffitt-ML", "ml"]
+      - ["Moffitt-modified", "modified"]
+      - ["Rocker-tidyverse", "tidyverse"]
+      - ["Rocker-shiny-verse", "shiny-verse"]
+      - ["Rocker-r-ver", "r-ver"]
+      - ["Rocker-r-base", "r-base"]
+      - ["Rocker-geospatial", "geospatial"]
+      - ["Rocker-shiny", "shiny"]
+      - ["Rocker-rstudio-stable", "rstudio-stable"]
+      - ["Rocker-verse", "verse"]
+      - ["Rocker-binder", "binder"]
+      - ["Rocker-cuda", "cuda"]
+      - ["Rocker-r2u", "r2u"]
+      - ["Rocker-ml-verse", "ml-verse"]
+      - ["Rocker-ropensci", "ropensci"]
+      - ["Rocker-ml", "ml-gpu"]
+        # - ["dontuse", "dontuse"]
     help: |
-      - **Latest** - Latest Rocker RStudio build from [dockerhub.moffitt.org]
-      - **Latest-modified** - **Latest** with some additional packages built into the image
-      - **Latest-ML** - Latest Rocker RStudio ML container
+      - **Rocker-ml** - Latest Rocker RStudio ML container
+      - **Moffitt-ml** - Moffitt-ized Rocker RStudio ML container
+      - **Moffitt-modified** - **Moffitt-ml** with some additional packages built into the image
   qos:
     label: "QoS (Quality of Service level)"
     widget: "select"

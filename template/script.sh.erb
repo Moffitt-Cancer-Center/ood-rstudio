@@ -49,6 +49,7 @@ JOB_LOG="${LOG_DIR}/job_startup.log"
 ## We maintain configuration across jobs in ~/.local/share/rstudio_server
 RSTUDIO_SERVER_DIR=${HOME}/.local/share/rstudio_server
 RSTUDIO_VAR_LIB=${RSTUDIO_SERVER_DIR}/var/lib
+RSTUDIO_OPT_SHARE=${RSTUDIO_SERVER_DIR}/opt/share
 RSTUDIO_VAR_RUN=${WORKING_DIR}/var/run
 RSTUDIO_ETC=${RSTUDIO_SERVER_DIR}/etc
 RSTUDIO_VAR_LOG=${LOG_DIR}
@@ -58,15 +59,74 @@ RSTUDIO_RSESSION="${BIN_DIR}/rsession.sh"
 
 # "APPTAINERENV" must preceed anything exported to apptainer environment.
 export APPTAINERENV_RSTUDIO_PASSWORD="$password"
-if [ "$R_VERSION" = "modified" ]; then
-  export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-rstudio-modified:latest"
-else
-  if [ "$R_VERSION" = "ml" ]; then
-    export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker_multi:latest"
-  else
-    export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION"
-  fi
-fi
+
+#if [ "$R_VERSION" = "modified" ]; then
+#  export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-rstudio-modified:latest"
+#elif [ "$R_VERSION" = "ml" ]; then
+#  export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-multi:latest"
+#elif [ "$R_VERSION" = "dontuse" ]; then
+#    export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-dontuse:latest"
+#else
+#  export RSTUDIO_CONTAINER_URI=docker pull rocker/rstudio"docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION"
+#fi
+
+case "$R_VERSION" in
+    "modified")
+        export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-rstudio-modified:latest"
+        ;;
+    "ml")
+        export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-multi:latest"
+        ;;
+    "tidyverse")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/tidyverse:latest"
+        ;;
+    "shiny-verse")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/shiny-verse:latest"
+        ;;
+    "r-ver")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/r-ver:latest"
+        ;;
+    "r-base")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/r-base:latest"
+        ;;
+    "geospatial")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/geospatial:latest"
+        ;;
+    "shiny")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/shiny:latest"
+        ;;
+    "rstudio-stable")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/rstudio-stable:latest"
+        ;;
+    "verse")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/verse:latest"
+        ;;
+    "binder")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/binder:latest"
+        ;;
+    "cuda")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/cuda:latest"
+        ;;
+    "r2u")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/r2u:latest"
+        ;;
+    "ml-verse")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/ml-verse:latest"
+        ;;
+    "ropensci")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/ropensci:latest"
+        ;;
+    "ml-gpu")
+        export RSTUDIO_CONTAINER_URI="docker://rocker/ml:latest"
+        ;;
+    "dontuse")
+        export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-dontuse:latest"
+        ;;
+    *)
+        # Default fallback for standard version numbers (e.g., 4.2.1)
+        export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION"
+        ;;
+esac
 
 # Initialize environment for execution.
 mkdir -p ${LOG_DIR}
@@ -97,6 +157,7 @@ setup_env
 mkdir -p -m 700 \
 	"${RSTUDIO_SERVER_DIR}" \
 	"${RSTUDIO_ETC}" \
+	"${RSTUDIO_OPT_SHARE}" \
 	"${RSTUDIO_VAR_LOG}" \
 	"${RSTUDIO_VAR_LIB}" \
 	"${RSTUDIO_VAR_RUN}"
@@ -119,6 +180,7 @@ BIND_POINTS=""\
 "${RSTUDIO_VAR_LOG}:/var/log/rstudio,"\
 "${RSTUDIO_VAR_LIB}:/var/lib/rstudio-server,"\
 "${RSTUDIO_VAR_RUN}:/run/rstudio-server,"\
+"${RSTUDIO_OPT_SHARE}:/opt/share,"\
 "${TMP_DIR}:/tmp"
 
 echo "`date`: Bind points for container:" >> ${JOB_LOG}
@@ -181,11 +243,19 @@ for f in $current_state_files; do
   fi
 done
 
+# Write password to a file inside the container's /tmp (TMP_DIR is bound to /tmp).
+# Newer RStudio Server versions (used in stock Rocker containers) do NOT inherit
+# RSTUDIO_PASSWORD in the PAM helper subprocess, so an env var alone is unreliable.
+mkdir -p "${TMP_DIR}/rstudio-server"
+(umask 077; printf '%s' "${password}" > "${TMP_DIR}/rstudio-server/rstudio-passwd")
+echo "`date`: Password file written to ${TMP_DIR}/rstudio-server/rstudio-passwd" >> ${JOB_LOG}
+
 set -x
 echo "`date`: Starting up rserver..." >> ${JOB_LOG}
 
 # Container startup
 apptainer exec \
+	--nv \
 	-B "${BIND_POINTS}" \
 	"$RSTUDIO_CONTAINER_URI" \
 	rserver \
@@ -199,4 +269,3 @@ apptainer exec \
                 --secure-cookie-key-file "${TMP_DIR}/rstudio-server/secure-cookie-key" \
                 --database-config-file "${DB_CF}" \
 		--server-user "${USER}"
-		--nv
