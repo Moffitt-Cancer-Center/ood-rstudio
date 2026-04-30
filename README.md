@@ -1,124 +1,145 @@
-# Open OnDemand RStudio Server App (Apptainer) - Moffitt HPC Customization
+# OOD RStudio Server App (Apptainer) — Moffitt Cancer Center HPC
 
-This repository contains the necessary files to deploy an RStudio Server application within an Apptainer container on an Open OnDemand (OOD) platform, specifically customized for the Moffitt HPC environment. This setup provides a consistent and reproducible environment for R development, ensuring that users have access to the required R packages and dependencies without needing to manage them directly on the shared OOD system. This implementation includes specific configurations for authentication, logging, and persistent state management tailored to this environment.
+An [Open OnDemand](https://openondemand.org/) batch-connect app that launches RStudio Server inside an Apptainer container on Moffitt's Red cluster (Slurm). Users select a container image, allocate resources, and get a one-click auto-login directly into a running RStudio session.
 
-**Important:** This README and the associated scripts are highly customized for the Moffitt HPC environment. They may not be directly applicable to other systems without significant modification.
+> **Note:** This app is customized for the Moffitt HPC environment and may require adaptation for other sites.
 
-## Features
+---
 
-*   **Containerized Environment:** RStudio Server runs inside an Apptainer container, isolating it from the host system and ensuring consistent behavior. Uses a specific Docker image from Docker Hub.
-*   **Reproducibility:** The Apptainer container image encapsulates the entire R environment, including R version, installed packages, and system libraries, making it easy to reproduce results.
-*   **Simplified Dependency Management:** Users don't need to install R packages or manage dependencies on the OOD system. All dependencies are pre-installed within the container.
-*   **Easy Deployment:** The provided OOD app simplifies the deployment and management of the RStudio Server application.
-*   **Custom Authentication:** Uses a PAM-based authentication helper script for secure user login.
-*   **Persistent State:** RStudio Server state (e.g., project settings, package installations) is persisted across sessions using bind mounts to the user's home directory.
-*   **Custom Logging:** Configured for detailed logging to a session-specific directory.
-*   **Temporary Directory Management:** Uses a unique temporary directory for each session.
-*   **R Version Control:** Allows specifying the R version via the OOD form.
+## How It Works
 
-## Prerequisites
+1. The user fills out the OOD launch form (image, CPUs, memory, GPUs, wall time, QoS).
+2. OOD submits a Slurm job to the `red` queue.
+3. The job script (`template/script.sh.erb`):
+   - Creates session-specific directories for RStudio state, logs, and a temp dir.
+   - Generates a random 16-character password and writes it to `$TMP_DIR/rstudio-server/rstudio-passwd` (mode `0600`), which is bind-mounted to `/tmp` inside the container.
+   - Writes `rsession.sh` and `auth` helper scripts into the session's `bin/` directory.
+   - Pulls and executes the selected container image via `apptainer exec`.
+   - Starts `rserver` with the custom PAM auth helper and session-specific bind mounts.
+4. OOD's `view.html.erb` sets a CSRF cookie and auto-submits a login form to `/auth-do-sign-in`, signing the user in without manual password entry.
 
-*   **Open OnDemand Installation:** You must have a working Open OnDemand installation.
-*   **Apptainer Installation:** Apptainer (Singularity) must be installed and configured on your OOD system.
-*   **Docker Image:** The system relies on a specific Docker image: `dockerhub.moffitt.org/hpc/rocker-rstudio`. Ensure this image is accessible to your Apptainer installation. Contact your HPC administrator if you have questions about image availability.
-*   **PAM Configuration:** The system uses PAM for authentication. Ensure that PAM is configured correctly on the compute nodes.
-*   **Shared Filesystem:** Users' home directories must be accessible from the compute nodes where the RStudio Server instances will run.
+---
+
+## Container Images
+
+Images are selected via the `r_version` form field. The mapping is:
+
+| Form Label | Image |
+|---|---|
+| Moffitt-ML | `dockerhub.moffitt.org/ood/rocker-multi:latest` |
+| Moffitt-modified | `dockerhub.moffitt.org/ood/rocker-rstudio-modified:latest` |
+| Rocker-tidyverse | `docker://rocker/tidyverse:latest` |
+| Rocker-shiny-verse | `docker://rocker/shiny-verse:latest` |
+| Rocker-r-ver | `docker://rocker/r-ver:latest` |
+| Rocker-r-base | `docker://rocker/r-base:latest` |
+| Rocker-geospatial | `docker://rocker/geospatial:latest` |
+| Rocker-shiny | `docker://rocker/shiny:latest` |
+| Rocker-rstudio-stable | `docker://rocker/rstudio-stable:latest` |
+| Rocker-verse | `docker://rocker/verse:latest` |
+| Rocker-binder | `docker://rocker/binder:latest` |
+| Rocker-cuda | `docker://rocker/cuda:latest` |
+| Rocker-r2u | `docker://rocker/r2u:latest` |
+| Rocker-ml-verse | `docker://rocker/ml-verse:latest` |
+| Rocker-ropensci | `docker://rocker/ropensci:latest` |
+| Rocker-ml (GPU) | `docker://rocker/ml:latest` |
+
+**First launch note:** If Apptainer needs to pull and convert a Docker image, the initial startup can take up to 5 minutes. Progress is visible in the session's `output.log`.
+
+---
+
+## Authentication
+
+RStudio Server is started with `--auth-none 0` and `--auth-pam-helper-path` pointing to `template/bin/auth`. This custom PAM helper:
+
+1. Reads the session password from `/tmp/rstudio-server/rstudio-passwd` inside the container (the file written by `script.sh.erb`).
+2. Falls back to the `RSTUDIO_PASSWORD` environment variable if the file is not present.
+3. Compares the resolved password against what the user typed on the RStudio login screen.
+
+This two-source approach ensures compatibility across all supported images. Moffitt images (older rserver build) work via env var; stock Rocker images (newer rserver that strips env vars from PAM subprocesses) work via the password file.
+
+The OOD `view.html.erb` auto-submits the login form using the generated password, so users normally never see the login screen.
+
+---
+
+## File Structure
+
+```
+├── manifest.yml          # OOD app metadata (name, category, role)
+├── form.yml              # Launch form definition (image, CPUs, memory, GPU, QoS, etc.)
+├── submit.yml.erb        # Slurm submission parameters
+├── view.html.erb         # Auto-login connect button (sets CSRF cookie + POST to /auth-do-sign-in)
+└── template/
+    ├── before.sh.erb     # Pre-job setup: port discovery, password generation, CSRF token
+    ├── script.sh.erb     # Main job script: directory setup, bind mounts, apptainer exec
+    ├── after.sh.erb      # Post-job: waits for RStudio port to become available
+    └── bin/
+        └── auth          # Custom PAM helper: validates username/password inside container
+```
+
+---
+
+## Key Bind Mounts
+
+`TMP_DIR` is a per-session `mktemp -d` directory. All bind mounts keep system-level RStudio paths pointing to user-writable locations:
+
+| Host path | Container path | Purpose |
+|---|---|---|
+| `~/.local/share/rstudio_server/etc/database.conf` | `/etc/rstudio/database.conf` | SQLite DB config |
+| `~/.local/share/rstudio_server/etc/logging.conf` | `/etc/rstudio/logging.conf` | Log level/destination |
+| `<session_log_dir>` | `/var/log/rstudio` | RStudio log output |
+| `~/.local/share/rstudio_server/var/lib` | `/var/lib/rstudio-server` | Persistent server state |
+| `<session_dir>/var/run` | `/run/rstudio-server` | PID file |
+| `~/.local/share/rstudio_server/opt/share` | `/opt/share` | Shared R libs |
+| `TMP_DIR` | `/tmp` | Temp files + password file |
+
+RStudio user state (`~/.local/share/rstudio`) persists naturally via the shared home filesystem and is not explicitly bind-mounted.
+
+---
+
+## Persistent State
+
+RStudio user preferences, project history, and installed packages in `~/.local/share/rstudio` persist across sessions automatically because the user's home directory is available on all compute nodes.
+
+Server-level state (database, logs, lib) is stored in `~/.local/share/rstudio_server` and is likewise persistent.
+
+---
+
+## Cluster / Queue Configuration
+
+Jobs are submitted to the `red` queue on the `slurm` cluster. Available QoS levels:
+
+| QoS | Max CPUs | Max wall time |
+|---|---|---|
+| normal | 64 | 12 hrs |
+| partsmall | 250 | 90 days |
+| small | 475 | 90 days |
+| medium | 950 | 45 days |
+| large | 1425 | 1 day |
+| xlarge | 1800 | 4 hrs |
+| xxlarge | 3000 | 12 hrs |
+
+---
 
 ## Installation
 
-1.  **Clone the Repository:**
+```bash
+git clone git@github.com:Moffitt-Cancer-Center/ood-rstudio.git
 
-    ```bash
-    git clone https://github.com/<your-username>/ood-rstudio-apptainer.git
-    cd ood-rstudio-apptainer
-    ```
+# Deploy to system apps:
+sudo cp -r ood-rstudio /var/www/ood/apps/sys/rstudio
 
-2.  **Copy the App to the OOD Apps Directory:**
+# OR deploy to your dev sandbox:
+cp -r ood-rstudio ~/ondemand/dev/rstudio
+```
 
-    Copy the `rstudio-apptainer` directory to the appropriate OOD apps directory. Consult your OOD administrator for the correct location. This is typically located at `/var/www/ood/apps/sys/` for system apps or `~/ood/apps/dev/` for development apps.
+Restart the OOD passenger app or reload nginx as appropriate for your site.
 
-    ```bash
-    sudo cp -r rstudio-apptainer /var/www/ood/apps/sys/
-    # OR
-    cp -r rstudio-apptainer ~/ood/apps/dev/
-    ```
+---
 
-3.  **Configure the App:**
+## Prerequisites
 
-    Edit the `manifest.yml`, `form.yml`, `submit.yml.erb`, and `view.html.erb` files in the `rstudio-apptainer` directory. Pay close attention to the following settings:
-
-    *   `title`: The name of the app as it will appear in the OOD dashboard.
-    *   `description`: A brief description of the app.
-    *   `icon`: Path to an icon for the app.
-    *   `form`: Defines the form fields that users will see when launching the app (e.g., CPU cores, memory, wall time, R version). **Ensure that the `r_version` field in the form matches the available tags in the `dockerhub.moffitt.org/hpc/rocker-rstudio` Docker image.**
-
-    Edit the `template/script.sh.erb` file. This script is executed on the compute node to start the RStudio Server instance. This script is heavily customized for the Moffitt HPC environment. **Carefully review and understand the script before deploying.**
-
-    **Key Configuration Details in `template/script.sh.erb`:**
-
-    *   **Docker Image:** The script uses the `dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION` Docker image.
-    *   **Authentication:** The script uses a PAM-based authentication helper script (`bin/auth`) located at `${BIN_DIR}/auth`. It's invoked using the `--auth-pam-helper-path` option of `rserver`. Authentication is enabled with `--auth-none 0` and password encryption is disabled with `--auth-encrypt-password 0`.
-    *   **Bind Mounts:** The script defines bind mounts to redirect system directories within the container to user-level locations, ensuring persistent state and proper logging. These are passed to `apptainer exec` using the `-B` option.  The key bind mounts are:
-        *   `${RSTUDIO_ETC}/database.conf:/etc/rstudio/database.conf`
-        *   `${RSTUDIO_ETC}/logging.conf:/etc/rstudio/logging.conf`
-        *   `${RSTUDIO_VAR_LOG}:/var/log/rstudio`
-        *   `${RSTUDIO_VAR_LIB}:/var/lib/rstudio-server`
-        *   `${RSTUDIO_VAR_RUN}:/run/rstudio-server`
-        *   `${TMP_DIR}:/tmp`
-    *   **Temporary Directory:** A unique temporary directory (`${TMP_DIR}`) is created for each session and used for RStudio Server's data directory and secure cookie key file using the `--server-data-dir` and `--secure-cookie-key-file` options of `rserver`.
-    *   **Rsession Wrapper:** The script creates a wrapper script (`${BIN_DIR}/rsession.sh`) to set up the environment for R sessions launched from within RStudio Server. This wrapper sets environment variables like `TZ`, `HOME`, `R_LIBS_SITE`, and `OMP_NUM_THREADS`.
-    *   **Apptainer Execution:** The script uses `apptainer exec` to run the RStudio Server within the container.
-    *   **Configuration Files:** The script creates and configures `logging.conf` and `database.conf` in `${RSTUDIO_ETC}`.
-
-4.  **Configure R Version Selection (OOD Form):**
-
-    The `script.sh.erb` file uses the `R_VERSION` variable to select the appropriate Docker image tag. You need to configure the OOD form to allow users to select the R version. Edit the `manifest.yml` file and add a form field for `r_version`. For example:
-
-    ```yaml
-    form:
-      - r_version:
-          widget: select
-          label: R Version
-          help: Select the R version to use.
-          options:
-            - "4.2.3"
-            - "4.3.2"
-            - "latest"
-    ```
-
-    **Important:** The options in the `options` list must match the available tags in the `dockerhub.moffitt.org/hpc/rocker-rstudio` Docker image.
-
-5.  **Create a "Connect" App (Optional, but Recommended):**
-
-    To make it easier for users to connect to the RStudio Server instance, create a separate OOD app that provides a link to the running RStudio Server. This app would:
-
-    *   Read the `port` from the job's standard output (passed via the `--www-port` option).
-    *   Construct the URL to the RStudio Server instance (e.g., `http://<node_name>:<port>`).
-    *   Display the URL to the user.
-
-    This "connect" app is beyond the scope of this README, but there are examples available in the Open OnDemand documentation and community forums.
-
-## Building the Apptainer Image (If Customization is Needed)
-
-If you need to customize the R environment, you can build your own Apptainer image based on the `dockerhub.moffitt.org/hpc/rocker-rstudio` image. Here's an example `Singularity` file:
-
-```singularity
-Bootstrap: docker
-From: dockerhub.moffitt.org/hpc/rocker-rstudio:latest
-
-%post
-    # Install any additional R packages
-    R -e "install.packages(c('tidyverse', 'shiny', 'ggplot2'))"
-
-    # Install system dependencies (if needed)
-    apt-get update && apt-get install -y --no-install-recommends \
-        libxml2-dev \
-        libcurl4-openssl-dev
-
-%environment
-    # Set environment variables
-    export R_LIBS_USER="/opt/R/library"
-
-%runscript
-    # Start RStudio Server
-    exec /usr/lib/rstudio-server/bin/rserver --www-port 8787 --www-address=0.0.0.0
+- Open OnDemand >= 3.x
+- Apptainer installed and accessible on compute nodes
+- Slurm scheduler with the `red` partition and configured QoS levels
+- Moffitt internal Docker registry (`dockerhub.moffitt.org`) reachable from compute nodes for Moffitt images; internet access or a local proxy for public Rocker images
+- Shared home filesystem mounted on all compute nodes
