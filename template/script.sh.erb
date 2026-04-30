@@ -43,7 +43,7 @@ WORKING_DIR="<%= session.staged_root %>"
 R_VERSION="<%= context.r_version %>"
 LOG_DIR="${WORKING_DIR}/log"  #  local logging output
 BIN_DIR="${WORKING_DIR}/bin"    # local bin (for session-specific tasks)
-TMP_DIR=$(mktemp -d)    # session-specific /tmp
+TMP_DIR="${WORKING_DIR}/tmp"    # session-specific /tmp (inside session dir for easy access)
 JOB_LOG="${LOG_DIR}/job_startup.log"
 ## RStudio variables: some are session-specific, others are global
 ## We maintain configuration across jobs in ~/.local/share/rstudio_server
@@ -160,7 +160,8 @@ mkdir -p -m 700 \
 	"${RSTUDIO_OPT_SHARE}" \
 	"${RSTUDIO_VAR_LOG}" \
 	"${RSTUDIO_VAR_LIB}" \
-	"${RSTUDIO_VAR_RUN}"
+	"${RSTUDIO_VAR_RUN}" \
+	"${TMP_DIR}"
 touch "${RSTUDIO_VAR_RUN}/rstudio-server.pid"
 create_log_config "${RSTUDIO_ETC}/logging.conf"
 create_db_config "${RSTUDIO_ETC}/database.conf"
@@ -191,7 +192,15 @@ EOF
 # exist inside the container. Stock Rocker images do not ship an
 # /etc/rstudio/rserver.conf, so a file-level bind silently fails.
 # Binding the whole directory works unconditionally.
+#
+# Bind /etc/passwd and /etc/group from the host so the HPC user identity
+# is recognised inside the container. Stock Rocker images only contain their
+# own default users (rstudio/admin); rserver rejects logins for any username
+# that cannot be resolved in the container's user database, even when the
+# PAM helper returns success.
 BIND_POINTS=""\
+"/etc/passwd:/etc/passwd:ro,"\
+"/etc/group:/etc/group:ro,"\
 "${RSTUDIO_ETC}:/etc/rstudio,"\
 "${RSTUDIO_VAR_LOG}:/var/log/rstudio,"\
 "${RSTUDIO_VAR_LIB}:/var/lib/rstudio-server,"\
