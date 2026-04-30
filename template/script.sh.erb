@@ -187,20 +187,27 @@ EOF
 # apptainer variables
 # https://apptainer.org/docs/user/main/cli/apptainer_exec.html
 
+# HPC users are resolved via LDAP/SSSD and are not present in the host's
+# flat /etc/passwd. Use 'getent' (which queries LDAP/SSSD on the host) to
+# extract just the current user's entry into a synthetic passwd/group file,
+# then bind-mount those into the container. This makes the user visible to
+# rserver without requiring LDAP access inside the container.
+CONTAINER_PASSWD="${TMP_DIR}/passwd"
+CONTAINER_GROUP="${TMP_DIR}/group"
+getent passwd "${USER}" > "${CONTAINER_PASSWD}"
+while read -r gid; do
+  getent group "$gid"
+done < <(id -G | tr ' ' '\n') > "${CONTAINER_GROUP}"
+echo "`date`: Generated container passwd: $(cat "${CONTAINER_PASSWD}")" >> ${JOB_LOG}
+
 # Bind RSTUDIO_ETC as a directory (not individual files).
 # Apptainer cannot bind-mount a file to a target path that does not already
 # exist inside the container. Stock Rocker images do not ship an
 # /etc/rstudio/rserver.conf, so a file-level bind silently fails.
 # Binding the whole directory works unconditionally.
-#
-# Bind /etc/passwd and /etc/group from the host so the HPC user identity
-# is recognised inside the container. Stock Rocker images only contain their
-# own default users (rstudio/admin); rserver rejects logins for any username
-# that cannot be resolved in the container's user database, even when the
-# PAM helper returns success.
 BIND_POINTS=""\
-"/etc/passwd:/etc/passwd:ro,"\
-"/etc/group:/etc/group:ro,"\
+"${CONTAINER_PASSWD}:/etc/passwd:ro,"\
+"${CONTAINER_GROUP}:/etc/group:ro,"\
 "${RSTUDIO_ETC}:/etc/rstudio,"\
 "${RSTUDIO_VAR_LOG}:/var/log/rstudio,"\
 "${RSTUDIO_VAR_LIB}:/var/lib/rstudio-server,"\
