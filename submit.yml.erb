@@ -5,6 +5,7 @@
 batch_connect:
   template: "basic"
   conn_params:
+    - password
     - csrf_token
 script:
   wall_time: "<%= (bc_num_hours.blank? ? 1 : bc_num_hours.to_i) * 3600 %>"

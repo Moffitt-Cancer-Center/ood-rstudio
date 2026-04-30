@@ -165,6 +165,18 @@ touch "${RSTUDIO_VAR_RUN}/rstudio-server.pid"
 create_log_config "${RSTUDIO_ETC}/logging.conf"
 create_db_config "${RSTUDIO_ETC}/database.conf"
 
+# Write rserver.conf so auth settings are applied regardless of RStudio Server version.
+# Newer Rocker-based images may ignore --auth-encrypt-password 0 as a CLI flag;
+# a config file is honored by all versions.
+RSTUDIO_RSERVER_CONF="${RSTUDIO_ETC}/rserver.conf"
+(
+umask 077
+cat > "${RSTUDIO_RSERVER_CONF}" << EOF
+auth-pam-helper-path=${RSTUDIO_AUTH}
+auth-encrypt-password=0
+EOF
+)
+
 # set_variables
 # There are a number of environment variables to setup for execution.
 # - apptainer variables
@@ -175,6 +187,7 @@ create_db_config "${RSTUDIO_ETC}/database.conf"
 # https://apptainer.org/docs/user/main/cli/apptainer_exec.html
 
 BIND_POINTS=""\
+"${RSTUDIO_RSERVER_CONF}:/etc/rstudio/rserver.conf,"\
 "${RSTUDIO_ETC}/database.conf:/etc/rstudio/database.conf,"\
 "${RSTUDIO_ETC}/logging.conf:/etc/rstudio/logging.conf,"\
 "${RSTUDIO_VAR_LOG}:/var/log/rstudio,"\
@@ -260,12 +273,10 @@ apptainer exec \
 	"$RSTUDIO_CONTAINER_URI" \
 	rserver \
 		--www-port "${port}" \
- 		--auth-none 0 \
- 		--auth-pam-helper-path "${RSTUDIO_AUTH}" \
- 		--auth-encrypt-password 0 \
-		--rsession-path "${RSTUDIO_RSESSION}"  \
+		--auth-none 0 \
+		--rsession-path "${RSTUDIO_RSESSION}" \
 		--server-app-armor-enabled=0 \
-                --server-data-dir "${TMP_DIR}" \
-                --secure-cookie-key-file "${TMP_DIR}/rstudio-server/secure-cookie-key" \
-                --database-config-file "${DB_CF}" \
+		--server-data-dir /tmp \
+		--secure-cookie-key-file /tmp/rstudio-server/secure-cookie-key \
+		--database-config-file "${DB_CF}" \
 		--server-user "${USER}"
