@@ -23,6 +23,17 @@ if [[ -z "${RSTUDIO_PASSWORD}" ]]; then
   exit 1
 fi
 
+# Read the expected HPC username from file. Inside Rocker containers $USER is
+# 'jovyan' (the container's built-in user), not the HPC username, so we cannot
+# compare against $USER directly.
+RSTUDIO_USER_FILE="/tmp/rstudio-server/rstudio-user"
+if [[ -f "${RSTUDIO_USER_FILE}" ]]; then
+  EXPECTED_USER="$(cat "${RSTUDIO_USER_FILE}")"
+else
+  # Fallback: trust $USER (works for Moffitt custom images where $USER is correct)
+  EXPECTED_USER="${USER}"
+fi
+
 # Read in the password from user
 read -s -p "Password: " PASSWORD
 echo ""
@@ -32,20 +43,21 @@ AUTH_LOG="/tmp/rstudio-server/auth-debug.log"
 mkdir -p "$(dirname "${AUTH_LOG}")" 2>/dev/null
 {
   echo "$(date): auth called"
-  echo "  USERNAME arg : ${USERNAME}"
-  echo "  USER env     : ${USER}"
-  echo "  passwd file  : ${RSTUDIO_PASSWD_FILE}"
-  echo "  file exists  : $(test -f "${RSTUDIO_PASSWD_FILE}" && echo YES || echo NO)"
-  echo "  stored pw len: ${#RSTUDIO_PASSWORD}"
-  echo "  input  pw len: ${#PASSWORD}"
+  echo "  USERNAME arg  : ${USERNAME}"
+  echo "  EXPECTED_USER : ${EXPECTED_USER}"
+  echo "  USER env      : ${USER}"
+  echo "  passwd file   : ${RSTUDIO_PASSWD_FILE}"
+  echo "  file exists   : $(test -f "${RSTUDIO_PASSWD_FILE}" && echo YES || echo NO)"
+  echo "  stored pw len : ${#RSTUDIO_PASSWORD}"
+  echo "  input  pw len : ${#PASSWORD}"
 } >> "${AUTH_LOG}" 2>/dev/null
 
-if [[ "${USERNAME}" == "${USER}" && "${PASSWORD}" == "${RSTUDIO_PASSWORD}" ]]; then
+if [[ "${USERNAME}" == "${EXPECTED_USER}" && "${PASSWORD}" == "${RSTUDIO_PASSWORD}" ]]; then
   echo "$(date): auth SUCCESS for ${USERNAME}" >> "${AUTH_LOG}" 2>/dev/null
   echo "Successful authentication"
   exit 0
 else
-  echo "$(date): auth FAILURE for ${USERNAME} (user_match=$(test "${USERNAME}" = "${USER}" && echo Y || echo N) pw_match=$(test "${PASSWORD}" = "${RSTUDIO_PASSWORD}" && echo Y || echo N))" >> "${AUTH_LOG}" 2>/dev/null
+  echo "$(date): auth FAILURE for ${USERNAME} (user_match=$(test "${USERNAME}" = "${EXPECTED_USER}" && echo Y || echo N) pw_match=$(test "${PASSWORD}" = "${RSTUDIO_PASSWORD}" && echo Y || echo N))" >> "${AUTH_LOG}" 2>/dev/null
   echo "Invalid authentication"
   exit 1
 fi

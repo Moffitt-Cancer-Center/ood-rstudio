@@ -283,7 +283,11 @@ done
 # RSTUDIO_PASSWORD in the PAM helper subprocess, so an env var alone is unreliable.
 mkdir -p "${TMP_DIR}/rstudio-server"
 (umask 077; printf '%s' "${password}" > "${TMP_DIR}/rstudio-server/rstudio-passwd")
+# Write the expected username so bin/auth can validate it without relying on
+# $USER inside the container (Rocker sets $USER=jovyan, not the HPC username).
+(umask 077; printf '%s' "${USER}" > "${TMP_DIR}/rstudio-server/rstudio-user")
 echo "`date`: Password file written to ${TMP_DIR}/rstudio-server/rstudio-passwd" >> ${JOB_LOG}
+echo "`date`: Username file written to ${TMP_DIR}/rstudio-server/rstudio-user (${USER})" >> ${JOB_LOG}
 
 set -x
 echo "`date`: Starting up rserver..." >> ${JOB_LOG}
