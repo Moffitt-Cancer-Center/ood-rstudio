@@ -192,6 +192,22 @@ EOF
 # extract just the current user's entry into a synthetic passwd/group file,
 # then bind-mount those into the container. This makes the user visible to
 # rserver without requiring LDAP access inside the container.
+# Locate the host CA bundle so HTTPS inside the container trusts the HPC
+# corporate SSL CA. Rocker images ship their own CA bundle which does not
+# include any site-specific intermediate CAs.
+CA_BUNDLE=""
+for f in \
+    /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+    /etc/pki/tls/certs/ca-bundle.crt \
+    /etc/ssl/certs/ca-certificates.crt \
+    /etc/ssl/ca-bundle.pem; do
+  if [[ -f "$f" ]]; then
+    CA_BUNDLE="$f"
+    break
+  fi
+done
+echo "`date`: Host CA bundle: ${CA_BUNDLE:-not found}" >> ${JOB_LOG}
+
 CONTAINER_PASSWD="${TMP_DIR}/passwd"
 CONTAINER_GROUP="${TMP_DIR}/group"
 getent passwd "${USER}" > "${CONTAINER_PASSWD}"
@@ -214,6 +230,11 @@ BIND_POINTS=""\
 "${RSTUDIO_VAR_RUN}:/run/rstudio-server,"\
 "${RSTUDIO_OPT_SHARE}:/opt/share,"\
 "${TMP_DIR}:/tmp"
+
+# Add CA bundle bind if one was found on the host
+if [[ -n "${CA_BUNDLE}" ]]; then
+  BIND_POINTS="${BIND_POINTS},${CA_BUNDLE}:${CA_BUNDLE}:ro"
+fi
 
 echo "`date`: rserver.conf contents:" >> ${JOB_LOG}
 cat "${RSTUDIO_RSERVER_CONF}" >> ${JOB_LOG}
@@ -245,6 +266,13 @@ set -x
 export TZ="US/Eastern"
 export HOME="$HOME"
 export R_LIBS_SITE="$R_LIBS_SITE"
+
+# Point curl and OpenSSL inside the container at the host CA bundle so
+# that HTTPS requests from R/RStudio trust the HPC corporate SSL CA.
+# Without this, RStudio's Posit AI manifest fetch (and any user HTTPS
+# calls) fail with an SSL certificate error.
+export CURL_CA_BUNDLE="${CA_BUNDLE}"
+export SSL_CERT_FILE="${CA_BUNDLE}"
 
 # Prevent OpenMP-enhanced libraries from spawning more threads 
 export OMP_NUM_THREADS=${SLURM_JOB_CPUS_PER_NODE}
