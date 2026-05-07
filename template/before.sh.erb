@@ -22,6 +22,12 @@ export r_version="<%= context.r_version %>"
 # the rstudio startup script.
 export password="$(create_passwd 16)"
 
+# Resolve and export the login username here on the OOD/login node where
+# SSSD is fully operational. compute nodes sometimes return the numeric UID
+# from id -un / getent when SSSD hasn't initialised yet.
+# copy_environment: true in submit.yml.erb carries this into the SLURM job.
+export SCRIPT_USER="$(id -un)"
+
 # Define a password and export it for RStudio authentication (via APPTAINER)
 # Not sure if it is needed here or in script
 export APPTAINERENV_RSTUDIO_PASSWORD="${password}"

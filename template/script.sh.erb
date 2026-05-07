@@ -44,14 +44,13 @@ R_VERSION="<%= context.r_version %>"
 LOG_DIR="${WORKING_DIR}/log"  #  local logging output
 BIN_DIR="${WORKING_DIR}/bin"    # local bin (for session-specific tasks)
 TMP_DIR="${WORKING_DIR}/tmp"    # session-specific /tmp (inside session dir for easy access)
-# Resolve the username reliably. $USER and id -un both fail on some HPC
-# compute nodes where SSSD is slow to respond, returning the numeric UID
-# instead of the login name. getent passwd <UID> queries SSSD/LDAP directly
-# using the numeric UID (which is always correct) and returns the full passwd
-# entry; we extract field 1 to get the symbolic login name.
-SCRIPT_USER="$(getent passwd "$(id -u)" | cut -d: -f1)"
+# SCRIPT_USER is exported by before.sh.erb (which runs on the OOD/login node
+# where SSSD is fully operational). Fall back to getent in case it is unset.
 if [[ -z "${SCRIPT_USER}" ]]; then
-  echo "ERROR: Could not resolve username for UID $(id -u) — SSSD/getent failed" >&2
+  SCRIPT_USER="$(getent passwd "$(id -u)" | cut -d: -f1)"
+fi
+if [[ -z "${SCRIPT_USER}" ]]; then
+  echo "ERROR: Could not resolve username for UID $(id -u)" >&2
   exit 1
 fi
 JOB_LOG="${LOG_DIR}/job_startup.log"
