@@ -195,6 +195,13 @@ EOF
 # extract just the current user's entry into a synthetic passwd/group file,
 # then bind-mount those into the container. This makes the user visible to
 # rserver without requiring LDAP access inside the container.
+<%
+  require 'etc'
+  _pw  = Etc.getpwnam(ENV["USER"])
+  _grp = Etc.getgrgid(_pw.gid)
+  _erb_passwd = "#{_pw.name}:x:#{_pw.uid}:#{_pw.gid}:#{_pw.gecos}:#{_pw.dir}:#{_pw.shell}"
+  _erb_group  = "#{_grp.name}:x:#{_grp.gid}:"
+%>
 # Locate the host CA bundle so HTTPS inside the container trusts the HPC
 # corporate SSL CA. Rocker images ship their own CA bundle which does not
 # include any site-specific intermediate CAs.
@@ -211,13 +218,18 @@ for f in \
 done
 echo "`date`: Host CA bundle: ${CA_BUNDLE:-not found}" >> ${JOB_LOG}
 
+# passwd/group entries are embedded at submission time by OOD's ERB renderer
+# (which runs on the OOD server where SSSD is reliable). No getent or id calls
+# are made on the compute node.
 CONTAINER_PASSWD="${TMP_DIR}/passwd"
 CONTAINER_GROUP="${TMP_DIR}/group"
-getent passwd "${SCRIPT_USER}" > "${CONTAINER_PASSWD}"
-while read -r gid; do
-  getent group "$gid"
-done < <(id -G | tr ' ' '\n') > "${CONTAINER_GROUP}"
-echo "`date`: Generated container passwd: $(cat "${CONTAINER_PASSWD}")" >> ${JOB_LOG}
+cat > "${CONTAINER_PASSWD}" << 'OOD_PASSWD_EOF'
+<%= _erb_passwd %>
+OOD_PASSWD_EOF
+cat > "${CONTAINER_GROUP}" << 'OOD_GROUP_EOF'
+<%= _erb_group %>
+OOD_GROUP_EOF
+echo "`date`: Container passwd entry: $(cat "${CONTAINER_PASSWD}")" >> ${JOB_LOG}
 
 # Bind RSTUDIO_ETC as a directory (not individual files).
 # Apptainer cannot bind-mount a file to a target path that does not already
