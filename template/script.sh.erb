@@ -44,6 +44,9 @@ R_VERSION="<%= context.r_version %>"
 LOG_DIR="${WORKING_DIR}/log"  #  local logging output
 BIN_DIR="${WORKING_DIR}/bin"    # local bin (for session-specific tasks)
 TMP_DIR="${WORKING_DIR}/tmp"    # session-specific /tmp (inside session dir for easy access)
+# Resolve the username explicitly via id -un. On some HPC compute nodes $USER
+# is not set or is set to the numeric UID rather than the login name.
+SCRIPT_USER="$(id -un)"
 JOB_LOG="${LOG_DIR}/job_startup.log"
 ## RStudio variables: some are session-specific, others are global
 ## We maintain configuration across jobs in ~/.local/share/rstudio_server
@@ -210,7 +213,7 @@ echo "`date`: Host CA bundle: ${CA_BUNDLE:-not found}" >> ${JOB_LOG}
 
 CONTAINER_PASSWD="${TMP_DIR}/passwd"
 CONTAINER_GROUP="${TMP_DIR}/group"
-getent passwd "${USER}" > "${CONTAINER_PASSWD}"
+getent passwd "${SCRIPT_USER}" > "${CONTAINER_PASSWD}"
 while read -r gid; do
   getent group "$gid"
 done < <(id -G | tr ' ' '\n') > "${CONTAINER_GROUP}"
@@ -313,9 +316,9 @@ mkdir -p "${TMP_DIR}/rstudio-server"
 (umask 077; printf '%s' "${password}" > "${TMP_DIR}/rstudio-server/rstudio-passwd")
 # Write the expected username so bin/auth can validate it without relying on
 # $USER inside the container (Rocker sets $USER=jovyan, not the HPC username).
-(umask 077; printf '%s' "${USER}" > "${TMP_DIR}/rstudio-server/rstudio-user")
+(umask 077; printf '%s' "${SCRIPT_USER}" > "${TMP_DIR}/rstudio-server/rstudio-user")
 echo "`date`: Password file written to ${TMP_DIR}/rstudio-server/rstudio-passwd" >> ${JOB_LOG}
-echo "`date`: Username file written to ${TMP_DIR}/rstudio-server/rstudio-user (${USER})" >> ${JOB_LOG}
+echo "`date`: Username file written to ${TMP_DIR}/rstudio-server/rstudio-user (${SCRIPT_USER})" >> ${JOB_LOG}
 
 set -x
 echo "`date`: Starting up rserver..." >> ${JOB_LOG}
@@ -333,4 +336,4 @@ apptainer exec \
 		--server-data-dir /tmp \
 		--secure-cookie-key-file /tmp/rstudio-server/secure-cookie-key \
 		--database-config-file "${DB_CF}" \
-		--server-user "${USER}"
+		--server-user "${SCRIPT_USER}"
