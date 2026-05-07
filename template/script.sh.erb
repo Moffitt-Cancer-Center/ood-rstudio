@@ -44,15 +44,9 @@ R_VERSION="<%= context.r_version %>"
 LOG_DIR="${WORKING_DIR}/log"  #  local logging output
 BIN_DIR="${WORKING_DIR}/bin"    # local bin (for session-specific tasks)
 TMP_DIR="${WORKING_DIR}/tmp"    # session-specific /tmp (inside session dir for easy access)
-# SCRIPT_USER is exported by before.sh.erb (which runs on the OOD/login node
-# where SSSD is fully operational). Fall back to getent in case it is unset.
-if [[ -z "${SCRIPT_USER}" ]]; then
-  SCRIPT_USER="$(getent passwd "$(id -u)" | cut -d: -f1)"
-fi
-if [[ -z "${SCRIPT_USER}" ]]; then
-  echo "ERROR: Could not resolve username for UID $(id -u)" >&2
-  exit 1
-fi
+# Username is embedded at job submission time by OOD's ERB renderer,
+# so this never depends on SSSD or getent on the compute node.
+SCRIPT_USER="<%= ENV["USER"] %>"
 JOB_LOG="${LOG_DIR}/job_startup.log"
 ## RStudio variables: some are session-specific, others are global
 ## We maintain configuration across jobs in ~/.local/share/rstudio_server
