@@ -1,0 +1,65 @@
+# Shared Ubuntu package list for the RStudio OOD app.
+# ─────────────────────────────────────────────────────────────────────────────
+# • Read at form-load time (form.yml.erb) to populate the "Common Ubuntu
+#   Packages" multi-select dropdown.
+# • When a user types package names in the "Additional Ubuntu Packages"
+#   text field, any names not already present are automatically appended
+#   here at job-submission time — making them visible to all users on the
+#   next form load.
+# • Admins may hand-edit this file at any time to curate entries, improve
+#   labels, or remove packages added by mistake.
+#
+# Format per entry:
+#   label  – Human-readable display text shown in the dropdown.
+#   value  – Exact Debian/Ubuntu package name(s) passed to apt-get install.
+#             Separate multiple packages with a space, e.g.:
+#             "libharfbuzz-dev libfribidi-dev"
+#
+# One-time sysadmin setup after deployment (so user submissions can append):
+#   sudo chgrp <ood_group> /path/to/app/data/packages.yml
+#   sudo chmod g+w         /path/to/app/data/packages.yml
+#   # Preserve group ownership on the directory so new files inherit it:
+#   sudo chmod g+s         /path/to/app/data/
+# ─────────────────────────────────────────────────────────────────────────────
+
+packages:
+  - label: "libhdf5-dev — HDF5 (rhdf5, hdf5r)"
+    value: "libhdf5-dev"
+  - label: "libgdal-dev — GDAL (sf, terra, rgdal)"
+    value: "libgdal-dev"
+  - label: "libproj-dev — PROJ (sf, geographic projections)"
+    value: "libproj-dev"
+  - label: "libudunits2-dev — Units (units, sf)"
+    value: "libudunits2-dev"
+  - label: "libxml2-dev — XML/HTML (xml2, rvest, XML)"
+    value: "libxml2-dev"
+  - label: "libnetcdf-dev — NetCDF (ncdf4, RNetCDF)"
+    value: "libnetcdf-dev"
+  - label: "libpq-dev — PostgreSQL client (RPostgres)"
+    value: "libpq-dev"
+  - label: "libmariadbd-dev — MariaDB client (RMariaDB)"
+    value: "libmariadbd-dev"
+  - label: "libmagick++-dev — ImageMagick (magick)"
+    value: "libmagick++-dev"
+  - label: "libfontconfig1-dev — Font config (systemfonts, ragg)"
+    value: "libfontconfig1-dev"
+  - label: "libharfbuzz-dev libfribidi-dev — Text shaping (textshaping, ragg)"
+    value: "libharfbuzz-dev libfribidi-dev"
+  - label: "libcairo2-dev — Cairo graphics (Cairo)"
+    value: "libcairo2-dev"
+  - label: "libgit2-dev — libgit2 (gert, git2r)"
+    value: "libgit2-dev"
+  - label: "libsodium-dev — Sodium crypto (sodium)"
+    value: "libsodium-dev"
+  - label: "libglpk-dev — GLPK LP solver (igraph)"
+    value: "libglpk-dev"
+  - label: "libgsl-dev — GNU Scientific Library (gsl)"
+    value: "libgsl-dev"
+  - label: "libgmp-dev libmpfr-dev — GMP/MPFR (Rmpfr, gmp)"
+    value: "libgmp-dev libmpfr-dev"
+  - label: "python3-dev python3-pip — Python 3 dev (reticulate)"
+    value: "python3-dev python3-pip"
+  - label: "cmake — CMake build tool (many source packages)"
+    value: "cmake"
+  - label: "texlive-latex-base texlive-fonts-recommended — LaTeX (rmarkdown PDF output)"
+    value: "texlive-latex-base texlive-fonts-recommended"

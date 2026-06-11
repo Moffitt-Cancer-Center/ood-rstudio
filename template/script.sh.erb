@@ -48,6 +48,74 @@ TMP_DIR="${WORKING_DIR}/tmp"    # session-specific /tmp (inside session dir for 
 # so this never depends on SSSD or getent on the compute node.
 SCRIPT_USER="<%= ENV["USER"] %>"
 JOB_LOG="${LOG_DIR}/job_startup.log"
+<%
+  # ─── Custom Apptainer Build — process form values at submission time ─────────
+  require 'yaml'
+  require 'pathname'
+
+  # Sanitize a candidate package name: only allow characters valid in
+  # Debian/Ubuntu package names (alphanumeric, hyphens, periods, plus signs).
+  # This prevents shell injection from user-supplied input.
+  def _sanitize_pkg(name)
+    name.to_s.strip.gsub(/[^a-zA-Z0-9\-\.+]/, "")
+  end
+
+  # custom_packages may come through as an Array (OOD multi-select) or as a
+  # space-separated String depending on OOD version — handle both safely.
+  _raw_custom = context.custom_packages rescue ""
+  _selected_pkgs = [_raw_custom]
+                     .flatten
+                     .map(&:to_s)
+                     .flat_map { |v| v.split(/\s+/) }
+                     .map { |p| _sanitize_pkg(p) }
+                     .reject(&:empty?)
+
+  # extra_packages is a free-text field — split on spaces and/or commas.
+  _extra_pkgs = context.extra_packages.to_s
+                  .split(/[\s,]+/)
+                  .map { |p| _sanitize_pkg(p) }
+                  .reject(&:empty?)
+
+  # Final deduplicated, sorted package list embedded into the script at submit time.
+  _all_packages = (_selected_pkgs + _extra_pkgs).uniq.sort
+
+  # Bypass flag: "1" → skip custom build and use base image directly.
+  _bypass_build = context.bypass_custom_build.to_s.strip == "1"
+
+  # ─── Append new free-text packages to the shared list ────────────────────────
+  # This runs server-side at job submission time. Any package in _extra_pkgs
+  # that is not already in data/packages.yml is appended so all users see it
+  # in the dropdown on their next form load.
+  #
+  # Uses an exclusive flock for safe concurrent writes. The file is appended
+  # as raw YAML text to preserve existing comments and formatting.
+  # Failure is non-fatal — a logging issue must not block the user's job.
+  if _extra_pkgs.any?
+    _shared_pkg_file = Pathname.new(__FILE__).dirname.parent.join('data', 'packages.yml')
+    if _shared_pkg_file.exist? && _shared_pkg_file.writable?
+      begin
+        File.open(_shared_pkg_file.to_s, File::RDWR) do |_f|
+          _f.flock(File::LOCK_EX)
+          _existing_data  = YAML.safe_load(_f.read) rescue nil
+          _existing_pkgs  = (_existing_data.is_a?(Hash) ? (_existing_data['packages'] || []) : [])
+                              .flat_map { |p| p['value'].to_s.split }
+                              .map(&:strip)
+          _new_pkgs = _extra_pkgs.reject { |p| _existing_pkgs.include?(p) }
+          if _new_pkgs.any?
+            _f.seek(0, IO::SEEK_END)
+            _new_pkgs.each do |_pkg|
+              # Append a minimal curated entry. Admin can later add a richer
+              # label by editing data/packages.yml directly.
+              _f.write("  - label: #{_pkg.inspect}\n    value: #{_pkg.inspect}\n")
+            end
+          end
+        end
+      rescue
+        # Non-fatal: a write failure must not prevent the job from starting.
+      end
+    end
+  end
+%>
 ## RStudio variables: some are session-specific, others are global
 ## We maintain configuration across jobs in ~/.local/share/rstudio_server
 RSTUDIO_SERVER_DIR=${HOME}/.local/share/rstudio_server
@@ -172,6 +240,120 @@ mkdir -p -m 700 \
 touch "${RSTUDIO_VAR_RUN}/rstudio-server.pid"
 create_log_config "${RSTUDIO_ETC}/logging.conf"
 create_db_config "${RSTUDIO_ETC}/database.conf"
+
+####################################################################
+#- custom_build
+# Optionally build a user-customized Apptainer container with extra Ubuntu
+# packages.  Values were sanitized at OOD submit time (ERB stage).
+#
+# Behaviour:
+#   - If bypass_custom_build is checked, skip entirely and use the base image.
+#   - If no packages were requested, skip and use the base image.
+#   - Otherwise, write (or update) an Apptainer .def file in the user's
+#     ~/.local/share/rstudio/custom-build/ directory, then build a .sif.
+#   - The build is cached via a hash of (base_image + package_list) stored in
+#     a sidecar .hash file — rebuild only when the hash changes.
+#   - On build failure the job exits so the user sees a clear error rather
+#     than a silent fallback to the base image.
+
+BYPASS_CUSTOM_BUILD="<%= _bypass_build ? "1" : "0" %>"
+ALL_PACKAGES="<%= _all_packages.join(" ") %>"
+CUSTOM_BUILD_DIR="${HOME}/.local/share/rstudio/custom-build"
+CUSTOM_DEF_FILE="${CUSTOM_BUILD_DIR}/rstudio-custom.def"
+CUSTOM_SIF_FILE="${CUSTOM_BUILD_DIR}/rstudio-custom.sif"
+CUSTOM_HASH_FILE="${CUSTOM_BUILD_DIR}/rstudio-custom.hash"
+
+echo "`date`: Custom build bypass flag: ${BYPASS_CUSTOM_BUILD}" >> ${JOB_LOG}
+echo "`date`: Requested custom packages: ${ALL_PACKAGES:-none}" >> ${JOB_LOG}
+
+if [[ "${BYPASS_CUSTOM_BUILD}" != "1" && -n "${ALL_PACKAGES}" ]]; then
+  # Strip the docker:// scheme prefix to produce the bare image reference
+  # used in the Apptainer .def file's "From:" line.
+  BASE_IMAGE="${RSTUDIO_CONTAINER_URI#docker://}"
+
+  # Deterministic hash: base image URI + sorted package list.
+  # Any change to either component triggers a rebuild.
+  CURRENT_HASH=$(printf '%s %s' "${RSTUDIO_CONTAINER_URI}" "${ALL_PACKAGES}" \
+                   | md5sum | cut -d' ' -f1)
+
+  NEED_BUILD=1
+  if [[ -f "${CUSTOM_SIF_FILE}" && -f "${CUSTOM_HASH_FILE}" ]]; then
+    STORED_HASH=$(cat "${CUSTOM_HASH_FILE}" 2>/dev/null || echo "")
+    if [[ "${STORED_HASH}" == "${CURRENT_HASH}" ]]; then
+      echo "`date`: Custom container cache is valid (hash: ${CURRENT_HASH}) — skipping build" >> ${JOB_LOG}
+      NEED_BUILD=0
+    else
+      echo "`date`: Package list or base image changed — will rebuild" >> ${JOB_LOG}
+      echo "`date`:   stored hash : ${STORED_HASH}" >> ${JOB_LOG}
+      echo "`date`:   current hash: ${CURRENT_HASH}" >> ${JOB_LOG}
+    fi
+  else
+    echo "`date`: No cached custom container found — building for the first time" >> ${JOB_LOG}
+  fi
+
+  if [[ "${NEED_BUILD}" == "1" ]]; then
+    mkdir -p -m 700 "${CUSTOM_BUILD_DIR}"
+
+    # Write the Apptainer definition file.  The user can further edit this
+    # file at ~/.local/share/rstudio/custom-build/rstudio-custom.def between
+    # sessions.  The hash-based cache will detect any manual edits and trigger
+    # a rebuild only when the OOD form values change; hand-edits to the .def
+    # itself are honoured on the next submit when the form values differ.
+    cat > "${CUSTOM_DEF_FILE}" << 'APPTAINER_DEF_SENTINEL'
+# Apptainer definition file — generated by the RStudio OOD app.
+# Location: ~/.local/share/rstudio/custom-build/rstudio-custom.def
+# You may inspect this file or extend the %post section, but note that the
+# OOD app regenerates it when the form values change.
+APPTAINER_DEF_SENTINEL
+
+    # Append the dynamic portion (variable-expanded, so not single-quoted).
+    cat >> "${CUSTOM_DEF_FILE}" << APPTAINER_DEF_EOF
+Bootstrap: docker
+From: ${BASE_IMAGE}
+
+%post
+    apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \\
+        ${ALL_PACKAGES}
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+APPTAINER_DEF_EOF
+
+    chmod 600 "${CUSTOM_DEF_FILE}"
+    echo "`date`: Apptainer .def written to: ${CUSTOM_DEF_FILE}" >> ${JOB_LOG}
+    echo "`date`: Base image : ${BASE_IMAGE}" >> ${JOB_LOG}
+    echo "`date`: Packages   : ${ALL_PACKAGES}" >> ${JOB_LOG}
+    echo "`date`: Building custom container — this may take several minutes on first build..." >> ${JOB_LOG}
+
+    # Remove stale artifacts before building.
+    rm -f "${CUSTOM_SIF_FILE}" "${CUSTOM_HASH_FILE}"
+
+    if apptainer build --fakeroot --force \
+         "${CUSTOM_SIF_FILE}" "${CUSTOM_DEF_FILE}" >> "${JOB_LOG}" 2>&1; then
+      printf '%s' "${CURRENT_HASH}" > "${CUSTOM_HASH_FILE}"
+      chmod 600 "${CUSTOM_HASH_FILE}"
+      echo "`date`: Custom container built successfully: ${CUSTOM_SIF_FILE}" >> ${JOB_LOG}
+    else
+      echo "`date`: ERROR: Custom Apptainer build failed." >> ${JOB_LOG}
+      echo "ERROR: Custom Apptainer build failed." >&2
+      echo "  Definition file : ${CUSTOM_DEF_FILE}" >&2
+      echo "  Job log         : ${JOB_LOG}" >&2
+      echo "  To recover, re-submit the job with 'Bypass custom container build' checked." >&2
+      exit 1
+    fi
+  fi
+
+  # Switch to the custom image for this session.
+  RSTUDIO_CONTAINER_URI="${CUSTOM_SIF_FILE}"
+  echo "`date`: Using custom container: ${RSTUDIO_CONTAINER_URI}" >> ${JOB_LOG}
+
+else
+  if [[ "${BYPASS_CUSTOM_BUILD}" == "1" ]]; then
+    echo "`date`: Custom build bypassed — using base image: ${RSTUDIO_CONTAINER_URI}" >> ${JOB_LOG}
+  else
+    echo "`date`: No custom packages requested — using base image: ${RSTUDIO_CONTAINER_URI}" >> ${JOB_LOG}
+  fi
+fi
 
 # Write rserver.conf so auth settings are applied regardless of RStudio Server version.
 # Newer Rocker-based images may ignore --auth-encrypt-password 0 as a CLI flag;

@@ -1,3 +1,18 @@
+<%
+  # ── Dynamic package list ────────────────────────────────────────────────────
+  # Read data/packages.yml at form-render time so new user-contributed packages
+  # (appended at job-submission time) are visible to all users immediately.
+  require 'yaml'
+  require 'pathname'
+  begin
+    _pkg_file = Pathname.new(__FILE__).dirname.join('data', 'packages.yml')
+    _pkg_data = YAML.safe_load(_pkg_file.read) || {}
+  rescue => _e
+    _pkg_data = {}
+  end
+  _pkg_list    = (_pkg_data['packages'] || []).map { |p| [p['label'].to_s, p['value'].to_s] }
+  _pkg_options = [["-- None --", ""]] + _pkg_list
+%>
 ---
 tile:
   title: "RStudio Server"
@@ -94,6 +109,43 @@ attributes:
       - ["X-Large (1800 cpus, 4 hrs)", "xlarge"]
       - ["XX-Large (3000 cpus, 12 hrs)", "xxlarge"]
 
+  custom_packages:
+    widget: "select"
+    multiple: true
+    label: "Common Ubuntu Packages"
+    help: |
+      Select one or more Ubuntu packages to install in your custom container.
+      Hold **Ctrl** (Windows/Linux) or **Cmd** (macOS) to select multiple packages.
+      A custom Apptainer image will be built on first use and **cached** for subsequent sessions —
+      it will only rebuild when your package selection changes.
+      **New packages you type in the field below are added to this list for all users.**
+      The Apptainer definition file is saved to `~/.local/share/rstudio/custom-build/rstudio-custom.def`
+      so you can inspect or hand-edit it between sessions.
+    options:
+<% _pkg_options.each do |_lbl, _val| -%>
+      - [<%= _lbl.inspect %>, <%= _val.inspect %>]
+<% end -%>
+
+  extra_packages:
+    widget: "text_field"
+    label: "Additional Ubuntu Packages"
+    value: ""
+    help: |
+      Type any extra Ubuntu package names separated by **spaces or commas**
+      (e.g. `libgeos-dev, libbz2-dev`).
+      Only valid Debian/Ubuntu package-name characters are accepted (letters, digits, `-`, `.`, `+`).
+      **Packages typed here are automatically added to the list above** so all users can find
+      them in future sessions. Leave blank if you have no additional packages beyond those selected above.
+
+  bypass_custom_build:
+    widget: "checkbox"
+    label: "Bypass custom container build"
+    value: "0"
+    help: |
+      Check this box to **skip** building a custom container and launch with the plain base
+      R/RStudio image instead.  Use this to recover if a previous custom build fails or
+      causes launch issues.
+
 form:
   - r_version
   - bc_account
@@ -104,4 +156,7 @@ form:
   - bc_num_gpu
   - bc_num_slots
   - qos
+  - custom_packages
+  - extra_packages
+  - bypass_custom_build
   # - bc_email_on_started
