@@ -63,64 +63,68 @@ RSTUDIO_RSESSION="${BIN_DIR}/rsession.sh"
 # "APPTAINERENV" must preceed anything exported to apptainer environment.
 export APPTAINERENV_RSTUDIO_PASSWORD="$password"
 
-#if [ "$R_VERSION" = "modified" ]; then
-#  export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-rstudio-modified:latest"
-#elif [ "$R_VERSION" = "ml" ]; then
-#  export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-multi:latest"
-#elif [ "$R_VERSION" = "dontuse" ]; then
-#    export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-dontuse:latest"
-#else
-#  export RSTUDIO_CONTAINER_URI=docker pull rocker/rstudio"docker://dockerhub.moffitt.org/hpc/rocker-rstudio:$R_VERSION"
-#fi
-
 case "$R_VERSION" in
     "modified")
         export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-rstudio-modified:latest"
+        export ROCKER_CMD="rserver"
         ;;
     "ml")
         export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-multi:latest"
+        export ROCKER_CMD="rserver"
         ;;
     "tidyverse")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/tidyverse:latest"
+        export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/tidyverse:latest"
+        export ROCKER_CMD="rserver"
         ;;
-    "shiny-verse")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/shiny-verse:latest"
-        ;;
-    "r-ver")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/r-ver:latest"
-        ;;
-    "r-base")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/r-base:latest"
-        ;;
+    #"shiny-verse")
+    #    export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/shiny-verse:latest"
+    #    export ROCKER_CMD="shiny-server"
+    #    ;;
+    #"r-ver")
+    #    export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/r-ver:latest"
+    #    ;;
+    #"r-base")
+    #    export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/r-base:latest"
+    #    ;;
     "geospatial")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/geospatial:latest"
+        export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/geospatial:latest"
+        export ROCKER_CMD="rserver"
         ;;
-    "shiny")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/shiny:latest"
-        ;;
+    #"shiny")
+    #    export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/shiny:latest"
+    #    export ROCKER_CMD="shiny-server"
+    #    ;;
     "rstudio-stable")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/rstudio-stable:latest"
+        export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/rstudio-stable:latest"
+        export ROCKER_CMD="rserver"
         ;;
     "verse")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/verse:latest"
+        export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/verse:latest"
+        export ROCKER_CMD="rserver"
         ;;
     "binder")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/binder:latest"
+        export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/binder:latest"
+        export ROCKER_CMD="rserver"
         ;;
     "cuda")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/cuda:latest"
+        export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/cuda:latest"
+        export ROCKER_CMD="rserver"
         ;;
     "r2u")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/r2u:latest"
+        export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/r2u:latest"
+        export ROCKER_CMD="rserver"
         ;;
     "ml-verse")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/ml-verse:latest"
+        export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/ml-verse:latest"
+        export ROCKER_CMD="rserver"
         ;;
     "ropensci")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/ropensci:latest"
+        export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/ropensci:latest"
+        export ROCKER_CMD="rserver"
         ;;
     "ml-gpu")
-        export RSTUDIO_CONTAINER_URI="docker://rocker/ml:latest"
+        export RSTUDIO_CONTAINER_URI="docker://docker.io/rocker/ml:latest"
+        export ROCKER_CMD="rserver"
         ;;
     "dontuse")
         export RSTUDIO_CONTAINER_URI="docker://dockerhub.moffitt.org/ood/rocker-dontuse:latest"
@@ -244,6 +248,7 @@ BIND_POINTS=""\
 "${RSTUDIO_VAR_LIB}:/var/lib/rstudio-server,"\
 "${RSTUDIO_VAR_RUN}:/run/rstudio-server,"\
 "${RSTUDIO_OPT_SHARE}:/opt/share,"\
+"${BIN_DIR}/shiny-server.conf:/etc/shiny-server/shiny-server.conf,"\
 "${TMP_DIR}:/tmp"
 
 # Add CA bundle bind if one was found on the host
@@ -321,6 +326,9 @@ for f in $current_state_files; do
   fi
 done
 
+sed -i -e "s/:current_user:/$USER/" $BIN_DIR/shiny-server.conf
+sed -i -e "s/3838/$port/" $BIN_DIR/shiny-server.conf
+
 # Write password to a file inside the container's /tmp (TMP_DIR is bound to /tmp).
 # Newer RStudio Server versions (used in stock Rocker containers) do NOT inherit
 # RSTUDIO_PASSWORD in the PAM helper subprocess, so an env var alone is unreliable.
@@ -340,7 +348,7 @@ apptainer exec \
 	--nv \
 	-B "${BIND_POINTS}" \
 	"$RSTUDIO_CONTAINER_URI" \
-	rserver \
+	$ROCKER_CMD \
 		--www-port "${port}" \
 		--auth-none 0 \
 		--rsession-path "${RSTUDIO_RSESSION}" \

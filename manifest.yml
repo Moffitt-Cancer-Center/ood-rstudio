@@ -4,7 +4,4 @@ category: Interactive Apps
 subcategory: Active Production Apps
 role: batch_connect
 description: |
-  This app launches a **Beta** RStudio container on one node of the Red cluster.
-
-  **Please let the HPC Team know of any issues or improvements that needs to be made
-  to this and the other 'Beta' apps while they are in the testing phase.
+  This app launches a RStudio container on one node of the Red cluster.

@@ -23,7 +23,7 @@ attributes:
     widget: "select"
     label: "Maximum Memory (GB)"
     help: Memory to allocate for job
-    value: "1G"
+    value: "8G"
     options:
       - ["Reserve 1GB", "1G"]
       - ["Reserve 2GB", "2G"]
@@ -63,11 +63,11 @@ attributes:
       - ["Moffitt-ML", "ml"]
       - ["Moffitt-modified", "modified"]
       - ["Rocker-tidyverse", "tidyverse"]
-      - ["Rocker-shiny-verse", "shiny-verse"]
+        # - ["Rocker-shiny-verse", "shiny-verse"]
       - ["Rocker-r-ver", "r-ver"]
       - ["Rocker-r-base", "r-base"]
       - ["Rocker-geospatial", "geospatial"]
-      - ["Rocker-shiny", "shiny"]
+        # - ["Rocker-shiny", "shiny"]
       - ["Rocker-rstudio-stable", "rstudio-stable"]
       - ["Rocker-verse", "verse"]
       - ["Rocker-binder", "binder"]
