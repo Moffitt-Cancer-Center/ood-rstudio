@@ -328,17 +328,23 @@ APPTAINER_DEF_EOF
     # Remove stale artifacts before building.
     rm -f "${CUSTOM_SIF_FILE}" "${CUSTOM_HASH_FILE}"
 
+    echo "Building custom RStudio container (base: ${BASE_IMAGE}, packages: ${ALL_PACKAGES})"
+    echo "  This may take 20-60 minutes for large images on the first build."
+    echo "  Progress is logged to: ${JOB_LOG}"
+    echo "  To check progress: tail -f ${JOB_LOG}"
+
     if apptainer build --fakeroot --force \
          "${CUSTOM_SIF_FILE}" "${CUSTOM_DEF_FILE}" >> "${JOB_LOG}" 2>&1; then
       printf '%s' "${CURRENT_HASH}" > "${CUSTOM_HASH_FILE}"
       chmod 600 "${CUSTOM_HASH_FILE}"
       echo "`date`: Custom container built successfully: ${CUSTOM_SIF_FILE}" >> ${JOB_LOG}
+      echo "Custom container build complete."
     else
       echo "`date`: ERROR: Custom Apptainer build failed." >> ${JOB_LOG}
-      echo "ERROR: Custom Apptainer build failed." >&2
-      echo "  Definition file : ${CUSTOM_DEF_FILE}" >&2
-      echo "  Job log         : ${JOB_LOG}" >&2
-      echo "  To recover, re-submit the job with 'Bypass custom container build' checked." >&2
+      echo "ERROR: Custom Apptainer build failed."
+      echo "  Definition file : ${CUSTOM_DEF_FILE}"
+      echo "  Job log         : ${JOB_LOG}"
+      echo "  To recover, re-submit the job with 'Bypass custom container build' checked."
       exit 1
     fi
   fi

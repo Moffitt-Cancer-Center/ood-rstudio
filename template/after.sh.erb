@@ -1,9 +1,28 @@
+<%
+  # ── Dynamic startup timeout ────────────────────────────────────────────────
+  # A custom Apptainer build can take 20-60+ minutes for large images.
+  # Use a generous 2-hour timeout when packages are requested so the container
+  # has time to build before we declare failure.
+  # If bypass is checked or no packages were selected, keep the normal 10-minute
+  # timeout so failures surface quickly.
+  _has_pkgs   = !context.custom_packages.to_s.strip.empty? ||
+                !context.extra_packages.to_s.strip.empty?
+  _bypass     = context.bypass_custom_build.to_s.strip == "1"
+  _wait_secs  = (_has_pkgs && !_bypass) ? 7200 : 600
+%>
 # Wait for the RStudio Server to start
-echo "Waiting for RStudio Server to open port ${port}..."
-if wait_until_port_used "${host}:${port}" 600; then
+# Timeout: <%= _wait_secs %> seconds
+# (<%= _wait_secs >= 3600 ? 'extended timeout — custom container build may be in progress' : 'standard timeout' %>)
+echo "Waiting for RStudio Server to open port ${port} (timeout: <%= _wait_secs %>s)..."
+if wait_until_port_used "${host}:${port}" <%= _wait_secs %>; then
   echo "Discovered RStudio Server listening on port ${port}!"
 else
   echo "Timed out waiting for RStudio Server to open port ${port}!"
+<% if _has_pkgs && !_bypass %>
+  echo "NOTE: A custom container build was requested. If the build is still running,"
+  echo "      check the job log for details: ${LOG_DIR}/job_startup.log"
+  echo "      To bypass the build on your next attempt, check 'Bypass custom container build' in the form."
+<% end %>
   clean_up 1
 fi
 sleep 2
