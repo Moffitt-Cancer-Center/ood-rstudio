@@ -82,6 +82,9 @@ JOB_LOG="${LOG_DIR}/job_startup.log"
   # Bypass flag: "1" → skip custom build and use base image directly.
   _bypass_build = context.bypass_custom_build.to_s.strip == "1"
 
+  # Runtime fakeroot flag: "1" → use --fakeroot on apptainer exec.
+  _enable_fakeroot_exec = context.enable_fakeroot_exec.to_s.strip == "1"
+
   # ─── Append new free-text packages to the shared list ────────────────────────
   # This runs server-side at job submission time. Any package in _extra_pkgs
   # that is not already in data/packages.yml is appended so all users see it
@@ -262,9 +265,11 @@ CUSTOM_BUILD_DIR="${HOME}/.local/share/rstudio/custom-build"
 CUSTOM_DEF_FILE="${CUSTOM_BUILD_DIR}/rstudio-custom.def"
 CUSTOM_SIF_FILE="${CUSTOM_BUILD_DIR}/rstudio-custom.sif"
 CUSTOM_HASH_FILE="${CUSTOM_BUILD_DIR}/rstudio-custom.hash"
+ENABLE_FAKEROOT_EXEC="<%= _enable_fakeroot_exec ? "1" : "0" %>"
 
 echo "`date`: Custom build bypass flag: ${BYPASS_CUSTOM_BUILD}" >> ${JOB_LOG}
 echo "`date`: Requested custom packages: ${ALL_PACKAGES:-none}" >> ${JOB_LOG}
+echo "`date`: Runtime fakeroot requested: ${ENABLE_FAKEROOT_EXEC}" >> ${JOB_LOG}
 
 if [[ "${BYPASS_CUSTOM_BUILD}" != "1" && -n "${ALL_PACKAGES}" ]]; then
   # Strip the docker:// scheme prefix to produce the bare image reference
@@ -359,6 +364,39 @@ else
   else
     echo "`date`: No custom packages requested — using base image: ${RSTUDIO_CONTAINER_URI}" >> ${JOB_LOG}
   fi
+fi
+
+# Validate runtime fakeroot prerequisites and set apptainer exec flag.
+APPTAINER_FAKEROOT_FLAG=""
+if [[ "${ENABLE_FAKEROOT_EXEC}" == "1" ]]; then
+  FAKEROOT_CHECK_FAILED=0
+
+  if ! command -v newuidmap >/dev/null 2>&1 || ! command -v newgidmap >/dev/null 2>&1; then
+    echo "`date`: ERROR: fakeroot runtime requested but newuidmap/newgidmap are not available on this node." >> ${JOB_LOG}
+    FAKEROOT_CHECK_FAILED=1
+  fi
+
+  if ! grep -q "^${USER}:" /etc/subuid 2>/dev/null; then
+    echo "`date`: ERROR: fakeroot runtime requested but /etc/subuid has no entry for user ${USER}." >> ${JOB_LOG}
+    FAKEROOT_CHECK_FAILED=1
+  fi
+
+  if ! grep -q "^${USER}:" /etc/subgid 2>/dev/null; then
+    echo "`date`: ERROR: fakeroot runtime requested but /etc/subgid has no entry for user ${USER}." >> ${JOB_LOG}
+    FAKEROOT_CHECK_FAILED=1
+  fi
+
+  if [[ "${FAKEROOT_CHECK_FAILED}" == "1" ]]; then
+    echo "ERROR: fakeroot runtime prerequisites are not met for user ${USER}." >&2
+    echo "  Required: newuidmap/newgidmap and matching /etc/subuid + /etc/subgid entries." >&2
+    echo "  See ${JOB_LOG} for details." >&2
+    exit 1
+  fi
+
+  APPTAINER_FAKEROOT_FLAG="--fakeroot"
+  echo "`date`: Runtime fakeroot enabled for apptainer exec." >> ${JOB_LOG}
+else
+  echo "`date`: Runtime fakeroot disabled for apptainer exec." >> ${JOB_LOG}
 fi
 
 # Write rserver.conf so auth settings are applied regardless of RStudio Server version.
@@ -533,6 +571,7 @@ echo "`date`: Starting up rserver..." >> ${JOB_LOG}
 
 # Container startup
 apptainer exec \
+  ${APPTAINER_FAKEROOT_FLAG} \
 	--nv \
 	-B "${BIND_POINTS}" \
 	"$RSTUDIO_CONTAINER_URI" \

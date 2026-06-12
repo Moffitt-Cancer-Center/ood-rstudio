@@ -146,6 +146,16 @@ attributes:
       R/RStudio image instead.  Use this to recover if a previous custom build fails or
       causes launch issues.
 
+  enable_fakeroot_exec:
+    widget: "check_box"
+    label: "Enable fakeroot at runtime"
+    value: "0"
+    help: |
+      Check this box to launch RStudio with `apptainer exec --fakeroot`.
+      This requires cluster support for user namespaces plus `/etc/subuid` and `/etc/subgid`
+      mappings for your account. If prerequisites are missing, job startup will fail with
+      a clear message in the startup log.
+
 form:
   - r_version
   - bc_account
@@ -159,4 +169,5 @@ form:
   - custom_packages
   - extra_packages
   - bypass_custom_build
+  - enable_fakeroot_exec
   # - bc_email_on_started
