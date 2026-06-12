@@ -153,8 +153,8 @@ attributes:
     help: |
       Check this box to launch RStudio with `apptainer exec --fakeroot`.
       This requires cluster support for user namespaces plus `/etc/subuid` and `/etc/subgid`
-      mappings for your account. If prerequisites are missing, job startup will fail with
-      a clear message in the startup log.
+      mappings for your account. If prerequisites are missing, the job will continue
+      without fakeroot and a warning will be written to the startup log.
 
 form:
   - r_version

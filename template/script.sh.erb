@@ -387,14 +387,17 @@ if [[ "${ENABLE_FAKEROOT_EXEC}" == "1" ]]; then
   fi
 
   if [[ "${FAKEROOT_CHECK_FAILED}" == "1" ]]; then
-    echo "ERROR: fakeroot runtime prerequisites are not met for user ${USER}." >&2
-    echo "  Required: newuidmap/newgidmap and matching /etc/subuid + /etc/subgid entries." >&2
+    echo "`date`: WARNING: fakeroot runtime requested but prerequisites are missing; continuing without --fakeroot." >> ${JOB_LOG}
+    echo "WARNING: fakeroot runtime prerequisites are not met for user ${USER}." >&2
+    echo "  Continuing without --fakeroot." >&2
+    echo "  Required for fakeroot: newuidmap/newgidmap and matching /etc/subuid + /etc/subgid entries." >&2
     echo "  See ${JOB_LOG} for details." >&2
-    exit 1
+    APPTAINER_FAKEROOT_FLAG=""
+    ENABLE_FAKEROOT_EXEC="0"
+  else
+    APPTAINER_FAKEROOT_FLAG="--fakeroot"
+    echo "`date`: Runtime fakeroot enabled for apptainer exec." >> ${JOB_LOG}
   fi
-
-  APPTAINER_FAKEROOT_FLAG="--fakeroot"
-  echo "`date`: Runtime fakeroot enabled for apptainer exec." >> ${JOB_LOG}
 else
   echo "`date`: Runtime fakeroot disabled for apptainer exec." >> ${JOB_LOG}
 fi
